@@ -6,7 +6,7 @@ The project folder is the directory that contains this file, `Start-IOT.cmd`, `p
 
 ## Do this first
 
-Set up the software and the API key first. Plug in the display and open the app before asking for a UI. The API key is not a file you paste into the chat.
+Set up the software and the API key once. After that, each time: open the program, connect the screen, wait until they match, then ask for a UI. The API key is not a file you paste into the chat.
 
 1. Install Python 3 and Node.js. In a terminal, from this folder:
 
@@ -34,13 +34,13 @@ python build.py
 cd ..
 ```
 
-4. Wire the ILI9341 to the ESP32 using the pin table below, if it is not already wired. Plug the ESP32 into the laptop with USB. Close any serial monitor first.
+4. Open the program with `Start-IOT.cmd` and leave that terminal open.
 
-5. Open the app with `Start-IOT.cmd` and leave that terminal open. Wait until the window says **Tap the physical screen or the simulator window**. The first connection uploads the mirror program, which can take a few minutes. The panel should already be showing the same picture as the simulator before anyone asks for a new UI.
+5. Connect the screen. The ILI9341 must already be wired to the ESP32 using the pin table below. Plug the ESP32 into the laptop with USB, and close any serial monitor first.
 
-6. Then ask for the UI in the chat at http://127.0.0.1:8765. The tests run on that picture, so both screens show them. Do not touch the panel while the tests are running.
+6. Wait until the physical screen and the simulator show the same picture. The window says **Tap the physical screen or the simulator window**. The first connection uploads the mirror program and can take a few minutes.
 
-7. When the tests pass, click the simulator glass or tap the physical panel. Both change the same interface.
+7. Then ask for a UI in the chat at http://127.0.0.1:8765. Do not touch the panel while the tests are running. When they pass, a click on the simulator or a tap on the physical screen changes the same interface.
 
 ## What this is
 
