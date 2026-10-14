@@ -6,7 +6,7 @@ The project folder is the directory that contains this file, `Start-IOT.cmd`, `p
 
 ## Do this first
 
-Software first, then the app, then the display. The API key is not a file you paste into the chat.
+Set up the software and the API key first. Plug in the display and open the app before asking for a UI. The API key is not a file you paste into the chat.
 
 1. Install Python 3 and Node.js. In a terminal, from this folder:
 
@@ -34,11 +34,13 @@ python build.py
 cd ..
 ```
 
-4. Open the app with `Start-IOT.cmd`. Leave that terminal open. The simulator window and the chat at http://127.0.0.1:8765 should appear. You can ask for a UI before any screen is plugged in.
+4. Wire the ILI9341 to the ESP32 using the pin table below, if it is not already wired. Plug the ESP32 into the laptop with USB. Close any serial monitor first.
 
-5. Wire the ILI9341 to the ESP32 using the pin table below, if it is not already wired. Then plug the ESP32 into the laptop with USB. Close any serial monitor first. The app finds the board, uploads the mirror program once, and the panel starts showing the same picture. You can also plug the board in before step 4. Opening the app is what starts the link.
+5. Open the app with `Start-IOT.cmd` and leave that terminal open. Wait until the window says **Tap the physical screen or the simulator window**. The first connection uploads the mirror program, which can take a few minutes. The panel should already be showing the same picture as the simulator before anyone asks for a new UI.
 
-6. Wait until the window says the tests are finished. Then click the simulator glass or tap the physical panel. Both change the same interface.
+6. Then ask for the UI in the chat at http://127.0.0.1:8765. The tests run on that picture, so both screens show them. Do not touch the panel while the tests are running.
+
+7. When the tests pass, click the simulator glass or tap the physical panel. Both change the same interface.
 
 ## What this is
 
