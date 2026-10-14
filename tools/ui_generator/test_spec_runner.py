@@ -69,6 +69,48 @@ def judge_passing(name, intent, captures, **_):
 
 
 class RunSpecTests(unittest.TestCase):
+    def test_compact_game_drift_is_rejected_even_inside_the_screen(self):
+        def board(left):return {'screen':[240,320],'widgets':[{'id':f'btn_{r}{c}','x':left+68*c,'y':60+68*r,'w':56,'h':56,'visible':True} for r in range(3) for c in range(3)]}
+        bad=board(47)
+        self.assertEqual(spec_runner.check_layout(bad)[0],[])  # All cells technically lie on screen.
+        failures,_=spec_runner.check_task_layout(bad,'Play tic tac toe')
+        self.assertTrue(any('centred' in f['expected'] for f in failures))
+        self.assertEqual(spec_runner.check_task_layout(board(24),'Play tic tac toe')[0],[])
+        self.assertEqual(spec_runner.check_task_layout(bad,'tic tac toe aligned right')[0],[])
+        self.assertEqual(spec_runner.check_task_layout(bad,'A scrollable list'),([],0))
+
+    def test_bad_initial_container_layout_skips_interactions_and_review(self):
+        class Host(FakeDevice):
+            def capture(this,path):path.mkdir(parents=True,exist_ok=True);p=path/'shot.png';p.write_bytes(b'PNG');return p
+            def geometry(this):return {'clipped_labels':0,'overlapping_interactive':[],'overlapping_text':[],'clipped_controls':[{'bounds':[220,10,250,30],'ancestor_bounds':[0,0,239,319]}]}
+        device=Host()
+        def forbidden(*args):raise AssertionError('Paid reviewer should not run for known broken layout')
+        result=spec_runner.run_spec(GOOD_SPEC,device,None,self.out,log=lambda *a:None,framebuffer_judge=forbidden)
+        self.assertFalse(result['passed']);self.assertEqual(result['tests'],[])
+        self.assertFalse(any(line.startswith(('TAP','DRAG')) for line in device.log))
+
+    def test_repair_feedback_deduplicates_same_layout_cause(self):
+        issue={'kind':'layout','test':'initial','expected':'centred','actual':'14px right'}
+        other={'kind':'state','test':'tap','expected':'X wins','actual':'Draw'}
+        text=spec_runner.describe_failures([issue]*20+[other])
+        self.assertEqual(text.count('14px right'),1);self.assertIn('X wins',text);self.assertIn('19 repeated',text)
+
+    def test_framebuffer_judging_is_batched_and_failure_rejects_ui(self):
+        class Host(FakeDevice):
+            def capture(this,path):path.mkdir(parents=True,exist_ok=True);p=path/'shot.png';p.write_bytes(b'PNG');return p
+            def geometry(this):return {'clipped_labels':0,'overlapping_interactive':[],'overlapping_text':[]}
+        calls=[]
+        def review(name,intent,captures):
+            calls.append(captures)
+            return [{'kind':'visual','test':'review','expected':'Readable contrast','actual':'Low contrast'}],{'captures':[]}
+        r=spec_runner.run_spec(GOOD_SPEC,Host(),None,self.out,log=lambda *a:None,framebuffer_judge=review)
+        self.assertFalse(r['passed']);self.assertTrue(r['visual']);self.assertEqual(len(calls),1)
+        self.assertEqual(len(calls[0]),3);self.assertEqual(r['photos'],3)
+        self.assertEqual(len({c['label'] for c in calls[0]}),3)
+        calls.clear()
+        spec_runner.run_spec(GOOD_SPEC,Host(broken_switch=True),None,self.out,log=lambda *a:None,framebuffer_judge=review)
+        self.assertEqual(calls,[])  # no paid judge call for an already broken functional UI
+
     def setUp(self):
         self.out = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.out, ignore_errors=True)

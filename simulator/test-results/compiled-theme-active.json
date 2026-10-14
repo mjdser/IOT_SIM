@@ -1,0 +1,48 @@
+{
+  "revision": "tools\\ui_generator\\runs\\2026-10-13_162946",
+  "theme": "light",
+  "theme_wanted": "light",
+  "builds": {
+    "dark": {
+      "executable": "tools\\ui_generator\\runs\\2026-10-13_162946\\attempt_1\\native-dark\\lvgl_sim.exe",
+      "sources": {
+        "lvgl_ui/generated_ui.cpp": "66dc1b02a5ddbff0dd33da7d642cc4c13c02c2f520bdb71c8e772e62502cc180",
+        "lvgl_ui/generated_ui.h": "527d30b61cc27d33e6b44891236bfe68bc853514fb416c5710e291c1f2c4653e",
+        "lvgl_ui/test_hooks.cpp": "76235f8fdb2b81dcddf88936294b4a4b0bd725df9915ccea44bff2d33343b7bc",
+        "include/lv_conf.h": "8a7437e5ba5b486f2334d72dd0431449f6cbf94b88a95e531fe84c9e409902e6",
+        "lvgl_ui/ui_theme.h": "f10b74f1660e3a01ee5946409a8b1c6088fb0a3f47da22c2bbef5651e58cdf91"
+      },
+      "executable_sha256": "b34d7bca0cc63e90ae0c4191b7c7ae71ebde1e7efa5da646c20b68ede3044478",
+      "screen": [
+        240,
+        320
+      ],
+      "colour": "RGB565",
+      "rotation": 0,
+      "lvgl": "8.3.11"
+    },
+    "light": {
+      "executable": "tools\\ui_generator\\runs\\2026-10-13_162946\\attempt_1\\native-light\\lvgl_sim.exe",
+      "sources": {
+        "lvgl_ui/generated_ui.cpp": "66dc1b02a5ddbff0dd33da7d642cc4c13c02c2f520bdb71c8e772e62502cc180",
+        "lvgl_ui/generated_ui.h": "527d30b61cc27d33e6b44891236bfe68bc853514fb416c5710e291c1f2c4653e",
+        "lvgl_ui/test_hooks.cpp": "76235f8fdb2b81dcddf88936294b4a4b0bd725df9915ccea44bff2d33343b7bc",
+        "include/lv_conf.h": "8a7437e5ba5b486f2334d72dd0431449f6cbf94b88a95e531fe84c9e409902e6",
+        "lvgl_ui/ui_theme.h": "72961ea1f51fe05376c338a042994422f23981ae5fbc3d4b3c3f54792a15e055"
+      },
+      "executable_sha256": "4782e1c0b0af03ced76d79cd27ddb0b4eac08593cfca88da15abf065d073bdb1",
+      "screen": [
+        240,
+        320
+      ],
+      "colour": "RGB565",
+      "rotation": 0,
+      "lvgl": "8.3.11"
+    }
+  },
+  "source_sha256": "66dc1b02a5ddbff0dd33da7d642cc4c13c02c2f520bdb71c8e772e62502cc180",
+  "theme_sha256": "72961ea1f51fe05376c338a042994422f23981ae5fbc3d4b3c3f54792a15e055",
+  "intent": "A light control with switch and brightness adjustment",
+  "run_dir": "tools\\ui_generator\\runs\\2026-10-13_162946",
+  "upload_command": "pio run -e lvgl_ui_test -t upload"
+}

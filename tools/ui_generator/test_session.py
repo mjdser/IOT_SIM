@@ -1,4 +1,6 @@
 import unittest
+import tempfile,json,hashlib
+from pathlib import Path
 from unittest import mock
 
 import gemini_client
@@ -10,6 +12,22 @@ CODE_2 = "// ui v2\nvoid generated_ui_create(void){}\n"
 
 
 class SessionTests(unittest.TestCase):
+    def test_followup_uses_actual_accepted_source_after_cli_repair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'generated_ui.cpp';source.write_text('// accepted repaired UI',encoding='utf-8')
+            specfile=root/'ui_spec.json';specfile.write_text('{"intent":"game"}')
+            sha=hashlib.sha256(source.read_bytes()).hexdigest();manifest=root/'active.json';manifest.write_text(json.dumps({'source_sha256':sha}))
+            session={'history':[('user','game'),('model','old misplaced UI')]}
+            with mock.patch.object(server,'cache_enabled',True),mock.patch.object(server,'FLASH',False),mock.patch.object(pipeline,'TARGET',source),mock.patch.object(pipeline,'SPEC_FILE',specfile),mock.patch.object(pipeline.host_sim,'ACTIVE',manifest):
+                server.sync_accepted_source(session)
+            self.assertIn('accepted repaired UI',session['history'][-1][1]);self.assertEqual(session['source_sha256'],sha)
+    def test_continue_repairs_uses_failed_code_and_diagnostics(self):
+        history=[('user','build a keyboard'),('model','FAILED DRAFT'),('user','Current overlaps another label')]
+        result=pipeline.Result(ok=False,repair_history=history,problem='overlap')
+        _,_,sid,_=self.turn(None,'build a keyboard',result)
+        _,_,_,run=self.turn(sid,'Continue repairing the last failed interface',pipeline.Result(ok=False))
+        self.assertEqual(run.call_args.kwargs['history'],history)
+
     def setUp(self):
         server.sessions.clear()
 
@@ -55,7 +73,7 @@ class SessionTests(unittest.TestCase):
         _, _, sid, _ = self.turn(None, "a button", (True, CODE_1))
         ok, message, _, _ = self.turn(sid, "something impossible", (False, ""))
         self.assertFalse(ok)
-        self.assertIn("couldn't build", message)
+        self.assertIn("failed validation or compilation", message)
         self.assertEqual(server.sessions[sid]["history"][-1], ("model", CODE_1))
 
     def test_flash_failure_is_reported_and_keeps_new_code(self):
@@ -89,7 +107,7 @@ class SessionTests(unittest.TestCase):
         failed = pipeline.Result(ok=False, tests="failed", checks_passed=3, checks_total=5)
         ok, message, _, _ = self.turn(sid, "something odd", failed)
         self.assertFalse(ok)
-        self.assertIn("previous interface is back", message)
+        self.assertIn("previous interface is preserved", message)
         self.assertEqual(server.sessions[sid]["history"][-1], ("model", CODE_2))
 
     def test_errors_show_only_friendly_text(self):

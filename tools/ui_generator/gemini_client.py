@@ -116,7 +116,7 @@ def _parts(content):
     return [{"text": content}] if isinstance(content, str) else list(content)
 
 
-def generate(system_prompt: str, messages, model: str = None, timeout: int = 120,
+def generate(system_prompt: str, messages, model: str = None, timeout: int = None,
              sleep=time.sleep, temperature: float = 0.2, json_output: bool = False,
              key_var: str = "GEMINI_API_KEY", fallback_model: str = None) -> str:
     """messages: list of (role, content) with role 'user' or 'model'. content is the
@@ -131,6 +131,10 @@ def generate(system_prompt: str, messages, model: str = None, timeout: int = 120
             "The assistant isn't set up yet (the API key is missing).",
         )
     primary = model or os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
+    if timeout is None:
+        timeout = int(os.environ.get("GEMINI_REQUEST_TIMEOUT", "120"))
+    if timeout <= 0:
+        raise GeminiError("GEMINI_REQUEST_TIMEOUT must be positive.")
     if fallback_model is None:
         fallback_model = os.environ.get("GEMINI_FALLBACK_MODEL", DEFAULT_FALLBACK_MODEL)
     models = [primary] + ([fallback_model] if fallback_model and fallback_model != primary else [])
@@ -146,12 +150,19 @@ def generate(system_prompt: str, messages, model: str = None, timeout: int = 120
 
     last_error = None
     for name in models:
+        # Gemini 3/4 accept thinkingLevel; Gemini 2.5 does not.
+        request_body = dict(body, generationConfig=dict(config))
+        thinking = os.environ.get("GEMINI_THINKING_LEVEL")
+        if thinking and name.startswith(("gemini-3", "gemini-4")):
+            if thinking not in ("minimal", "low", "medium", "high"):
+                raise GeminiError("GEMINI_THINKING_LEVEL must be minimal, low, medium or high.")
+            request_body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": thinking}
         for attempt, delay in enumerate((0,) + RETRY_DELAYS):
             if delay:
                 _log(f"{name} unavailable, retrying in {delay}s (retry {attempt}/{len(RETRY_DELAYS)})")
                 sleep(delay)
             try:
-                return _reply_text(_request(name, body, key, timeout))
+                return _reply_text(_request(name, request_body, key, timeout))
             except GeminiError as e:
                 last_error = e
                 if e.retryable:

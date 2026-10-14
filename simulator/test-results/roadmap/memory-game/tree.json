@@ -1,0 +1,93 @@
+{
+  "screen": [
+    240,
+    320
+  ],
+  "widgets": [
+    {
+      "id": "nav_previous",
+      "type": "btn",
+      "x": 6,
+      "y": 280,
+      "w": 108,
+      "h": 32,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Previous"
+    },
+    {
+      "id": "nav_next",
+      "type": "btn",
+      "x": 126,
+      "y": 280,
+      "w": 108,
+      "h": 32,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Next"
+    },
+    {
+      "id": "lbl_memory",
+      "type": "label",
+      "x": 14,
+      "y": 48,
+      "w": 208,
+      "h": 16,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Matches: 2"
+    },
+    {
+      "id": "tile_0",
+      "type": "btn",
+      "x": 50,
+      "y": 96,
+      "w": 64,
+      "h": 64,
+      "visible": true,
+      "checked": false,
+      "disabled": true,
+      "text": "A"
+    },
+    {
+      "id": "tile_1",
+      "type": "btn",
+      "x": 126,
+      "y": 96,
+      "w": 64,
+      "h": 64,
+      "visible": true,
+      "checked": false,
+      "disabled": true,
+      "text": "B"
+    },
+    {
+      "id": "tile_2",
+      "type": "btn",
+      "x": 50,
+      "y": 172,
+      "w": 64,
+      "h": 64,
+      "visible": true,
+      "checked": false,
+      "disabled": true,
+      "text": "A"
+    },
+    {
+      "id": "tile_3",
+      "type": "btn",
+      "x": 126,
+      "y": 172,
+      "w": 64,
+      "h": 64,
+      "visible": true,
+      "checked": false,
+      "disabled": true,
+      "text": "B"
+    }
+  ],
+  "overflow": false
+}

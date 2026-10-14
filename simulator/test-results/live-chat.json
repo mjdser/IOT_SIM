@@ -1,0 +1,5 @@
+{
+  "ok": true,
+  "message": "Done! Your interface passed 61 PC checks and is ready on the simulated glass. Showing the tested dark colours.\nReady for real board: pio run -e lvgl_ui_test -t upload\nThis uses the same generated_ui.cpp; the ESP32 binary is compiled separately. Tell me if you want anything changed.",
+  "sid": "03af38937bf925d9"
+}

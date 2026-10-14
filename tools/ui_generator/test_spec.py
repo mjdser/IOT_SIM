@@ -68,7 +68,7 @@ class ValidateTests(unittest.TestCase):
         self.assertProblem(lambda s: s.pop("intent"), "intent")
         self.assertProblem(lambda s: s.update(tests=[]), "at least one test")
         self.assertProblem(lambda s: s["tests"][0]["steps"].append({"click": "x"}), "a step must be one of")
-        self.assertProblem(lambda s: s["tests"][0]["steps"].append({"tap": "Bad-Id"}), "tap needs a widget id")
+        self.assertProblem(lambda s: s["tests"][0]["steps"].append({"tap": "Bad-Id"}), "lowercase dynamically constructed ids too")
         self.assertProblem(lambda s: s["tests"][1]["steps"].__setitem__(0, {"drag": ["sl_bright", "30"]}), "drag must be")
         self.assertProblem(lambda s: s["tests"][1]["steps"].__setitem__(1, {"wait_ms": 99999}), "wait_ms")
         self.assertProblem(lambda s: s["tests"][0]["steps"].append({"expect": {"sw_light": {"colour": "red"}}}),

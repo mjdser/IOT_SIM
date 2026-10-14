@@ -1,0 +1,24 @@
+const fs=require('node:fs'),path=require('node:path');
+module.exports=async(win,root)=>{
+ const js=c=>win.webContents.executeJavaScript(c),wait=ms=>new Promise(r=>setTimeout(r,ms));
+ await js("window.benchTest.view('camera')");await wait(300);
+ let data=await js("window.pipelineTest.action({action:'reset'})");
+ const cells=data.tree.widgets.filter(w=>/^btn_[0-2][0-2]$/.test(w.id));
+ if(cells.length!==9)throw Error('Missing game cells');
+ const left=Math.min(...cells.map(w=>w.x)),right=Math.max(...cells.map(w=>w.x+w.w));
+ if(Math.abs((left+right)/2-120)>4)throw Error('Game board is not centred');
+ if(data.build.theme!=='light'||data.build.light_available)throw Error('Expected a single tested white palette');
+ const point=await js("window.pipelineTest.point('btn_00')");
+ win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...point});
+ win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...point});await wait(600);
+ const click=(await js('window.pipelineTest.snapshot()')).tree;
+ await js("window.pipelineTest.action({action:'reset'})");
+ const tapped=await js("window.pipelineTest.action({action:'tap_id',id:'btn_00'})");
+ if(JSON.stringify(click)!==JSON.stringify(tapped.tree))throw Error('Glass input differs from TAP_ID');
+ await js("window.pipelineTest.action({action:'tap_id',id:'btn_11'})");await wait(350);
+ fs.writeFileSync(path.join(root,'test-results/centred-game.png'),(await win.webContents.capturePage()).toPNG());
+ await js("window.pipelineTest.action({action:'tap_id',id:'btn_restart'})");
+ data=await js("window.pipelineTest.action({action:'frame'})");
+ if(data.tree.widgets.find(w=>w.id==='lbl_status').text!=="X's turn")throw Error('New Game failed');
+ fs.writeFileSync(path.join(root,'test-results/centred-game.json'),JSON.stringify({passed:true,gridCentre:(left+right)/2,gridSpan:[left,right],singleWhitePalette:true,mouseMatchesTapId:true,newGame:true},null,2));
+};

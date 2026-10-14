@@ -58,6 +58,7 @@ class ThemeFlowTests(unittest.TestCase):
                                         log=lambda *_: None, judge=judge_passing, must_see=must_see)
 
         for name, value in {"TARGET": tmp / "generated_ui.cpp", "THEME_FILE": tmp / "ui_theme.h",
+                            "SPEC_FILE": tmp / "ui_spec.json",
                             "RUNS_DIR": tmp / "runs", "REJECTED_FILE": tmp / "rejected.cpp",
                             "compile_ui": compile_ui, "flash_ui": flash_ui, "run_tests": run_tests,
                             "find_pio": lambda: "pio"}.items():

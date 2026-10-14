@@ -171,3 +171,138 @@ class Device:
     def reset_ui(self):
         if self.command("RESET_UI", timeout=10) != "OK":
             raise DeviceError("RESET_UI failed")
+
+
+class SimulatorDevice(Device):
+    """Same protocol client over a PC child process; never opens a serial port.
+
+    FRAME/THEME are host-only extensions, not commands added to the ESP32.
+    A private framebuffer file belongs to this one process.
+    """
+    def __init__(self, executable, log=print, boot_timeout=20.0):
+        from pathlib import Path
+        self.executable = Path(executable).resolve()
+        self.log, self.boot_timeout = log, boot_timeout
+        self.process = None
+
+    def open(self):
+        import subprocess, tempfile, queue, threading
+        from pathlib import Path
+        self.temp = tempfile.TemporaryDirectory(prefix="iot-lvgl-", dir=self.executable.parent)
+        self.frame_path = Path(self.temp.name) / "frame.rgb565"
+        self.lines = queue.Queue()
+        self.process = subprocess.Popen(
+            [str(self.executable), str(self.frame_path)], stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", bufsize=1,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        def read():
+            for line in self.process.stdout:
+                self.lines.put(line.strip())
+            self.lines.put(None)
+        self.reader = threading.Thread(target=read, daemon=True)
+        self.reader.start()
+        try:
+            if self.command("PING", timeout=self.boot_timeout, booting=True) != "OK":
+                raise DeviceError("Host simulator did not answer PING")
+        except Exception:
+            self.close()
+            raise
+
+    def close(self):
+        import subprocess
+        if self.process:
+            self.process.stdin.close()
+            try:
+                self.process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+            self.reader.join(timeout=2)
+            self.process.stdout.close()
+            self.process = None
+            self.temp.cleanup()
+
+    def command(self, cmd, timeout=5.0, booting=False):
+        import queue
+        if not self.process or self.process.poll() is not None:
+            raise DeviceError("Host simulator is not running")
+        if '\n' in cmd or '\r' in cmd or len(cmd) > 94:
+            raise DeviceError("Invalid protocol line")
+        self.process.stdin.write(cmd + "\n")
+        self.process.stdin.flush()
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                line = self.lines.get(timeout=max(0, deadline-time.monotonic()))
+            except queue.Empty:
+                self.close()  # Do not accept a late reply for the next command.
+                raise DeviceError(f"Host timeout: {cmd}") from None
+            if line is None:
+                raise DeviceError("Host simulator exited unexpectedly")
+            if line == "@@READY" and booting:
+                continue
+            if line.startswith("@@"):
+                return line[2:]
+            self.log(f"[host] {line}")
+
+    def framebuffer(self):
+        if self.command("FRAME") != "OK":
+            raise DeviceError("Host framebuffer capture failed")
+        raw = self.frame_path.read_bytes()
+        if len(raw) != 240 * 320 * 2:
+            raise DeviceError("Incomplete RGB565 framebuffer")
+        return raw
+
+    def set_theme(self, light):
+        if self.command("THEME LIGHT" if light else "THEME DARK") != "OK":
+            raise DeviceError("Host palette switch failed")
+
+    def geometry(self):
+        """Host-only checks complement the board's registered-widget TREE."""
+        reply=self.command("GEOMETRY")
+        if not reply.startswith("GEOMETRY "):
+            raise DeviceError("Host geometry inspection failed")
+        result=json.loads(reply[9:])
+        widgets=self.tree()['widgets']
+        result['outside_screen']=[w['id'] for w in widgets if w['visible'] and
+            (w['x']<0 or w['y']<0 or w['x']+w['w']>240 or w['y']+w['h']>320)]
+        interactive=[w for w in widgets if w['visible'] and w['type'] in ('btn','slider','arc','switch','checkbox')]
+        result['overlapping_interactive']=[]
+        for i,a in enumerate(interactive):
+            for b in interactive[i+1:]:
+                if max(a['x'],b['x'])<min(a['x']+a['w'],b['x']+b['w']) and max(a['y'],b['y'])<min(a['y']+a['h'],b['y']+b['h']):
+                    result['overlapping_interactive'].append([a['id'],b['id']])
+        return result
+
+    def ranges(self):
+        reply=self.command('RANGES')
+        return json.loads(reply[7:]) if reply.startswith('RANGES ') else []
+
+    def capture(self, directory):
+        """Write the actual RGB565 rendering as a lossless PNG beside its TREE."""
+        from pathlib import Path
+        import struct, zlib
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        if not self.wait_idle():
+            raise DeviceError("UI did not settle before capture")
+        tree = self.tree()
+        raw = self.framebuffer()
+        pixels = bytearray()
+        for y in range(320):
+            pixels.append(0)
+            for x in range(240):
+                i = 2*(y*240+x)
+                n = raw[i] | raw[i+1] << 8
+                r,g,b = n>>11, (n>>5)&63, n&31
+                pixels.extend(((r<<3)|(r>>2), (g<<2)|(g>>4), (b<<3)|(b>>2)))
+        def chunk(kind, data):
+            return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)
+        png = b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',240,320,8,2,0,0,0))
+        png += chunk(b'IDAT',zlib.compress(pixels))+chunk(b'IEND',b'')
+        (directory/'shot.png').write_bytes(png)
+        (directory/'frame.rgb565').write_bytes(raw)
+        (directory/'tree.json').write_text(json.dumps({k:v for k,v in tree.items() if k!='by_id'},indent=2),encoding='utf-8')
+        (directory/'geometry.json').write_text(json.dumps(self.geometry(),indent=2),encoding='utf-8')
+        return directory/'shot.png'

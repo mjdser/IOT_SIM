@@ -1,0 +1,93 @@
+{
+  "screen": [
+    240,
+    320
+  ],
+  "widgets": [
+    {
+      "id": "nav_previous",
+      "type": "btn",
+      "x": 6,
+      "y": 280,
+      "w": 108,
+      "h": 32,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Previous"
+    },
+    {
+      "id": "nav_next",
+      "type": "btn",
+      "x": 126,
+      "y": 280,
+      "w": 108,
+      "h": 32,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Next"
+    },
+    {
+      "id": "lbl_colour",
+      "type": "label",
+      "x": 14,
+      "y": 51,
+      "w": 208,
+      "h": 16,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Purple"
+    },
+    {
+      "id": "btn_dark",
+      "type": "btn",
+      "x": 14,
+      "y": 91,
+      "w": 100,
+      "h": 36,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Dark"
+    },
+    {
+      "id": "btn_light",
+      "type": "btn",
+      "x": 126,
+      "y": 91,
+      "w": 100,
+      "h": 36,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Light"
+    },
+    {
+      "id": "btn_purple",
+      "type": "btn",
+      "x": 14,
+      "y": 151,
+      "w": 208,
+      "h": 36,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Purple"
+    },
+    {
+      "id": "lbl_symbols",
+      "type": "label",
+      "x": 14,
+      "y": 221,
+      "w": 208,
+      "h": 16,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "\uf00c  \uf015  \uf013"
+    }
+  ],
+  "overflow": false
+}

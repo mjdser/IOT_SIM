@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "gridCentre": 121,
+  "gridSpan": [
+    25,
+    217
+  ],
+  "singleWhitePalette": true,
+  "mouseMatchesTapId": true,
+  "newGame": true
+}

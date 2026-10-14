@@ -1,4 +1,8 @@
-"""Request -> Gemini -> validate -> compile -> flash -> test on the board -> camera judge.
+"""Existing generator -> validate -> compile -> PC tests/live bench by default.
+
+With flash=False, the same source and test hooks run on PC LVGL. A passing build
+is published to the bench; no PlatformIO, camera or requirements reviewer is
+called. Optional independent vision review uses the host framebuffer PNGs. flash=True explicitly selects the legacy board pipeline below.
 
 Gemini returns generated_ui.cpp plus ui_spec.json (the tests for that UI). With
 test=True the board gets the lvgl_ui_test build, spec_runner.py carries out the
@@ -33,17 +37,19 @@ import requirements
 import spec as spec_module
 import spec_runner
 import validator
+import host_sim
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 TARGET = ROOT / "lvgl_ui" / "generated_ui.cpp"
+SPEC_FILE = TARGET.with_name("ui_spec.json")
 THEME_FILE = ROOT / "lvgl_ui" / "ui_theme.h"
 PROMPT_FILE = HERE / "system_prompt.txt"
 REJECTED_FILE = HERE / "last_rejected.cpp"  # latest reply that broke a rule
 RUNS_DIR = HERE / "runs"
 PIO_ENV = "lvgl_ui"
 TEST_ENV = "lvgl_ui_test"
-MAX_ATTEMPTS = 3
+MAX_ATTEMPTS = 6
 
 
 @dataclass
@@ -60,6 +66,12 @@ class Result:
     theme: str = "dark"       # colours now on the board
     theme_wanted: str = "dark"  # colours the user asked for (ui_spec.json "theme")
     not_possible: list = None   # [{"item", "why"}] from the independent requirements
+    target: str = "board"
+    source_sha256: str = ""
+    failures: list = None
+    repair_history: list = None
+    visual: bool = False
+    palette_mode: str = 'selected'
 
 
 def default_generator():
@@ -226,7 +238,7 @@ def run_tests(the_spec: dict, port: str, out_dir: Path, log=print, judge=None,
     """Opens the board and (if CAMERA_INDEX is set and use_camera) the camera, then
     runs the spec. Raises device_runner.DeviceError / camera.CameraError on setup problems."""
     open_device = open_device or (lambda: device_runner.Device(port, log=log))
-    settings = camera.settings_from_env()
+    settings = camera.settings_from_env() if use_camera else None
     if not use_camera:
         open_camera = None
     elif open_camera is None and settings:
@@ -240,29 +252,44 @@ def run_tests(the_spec: dict, port: str, out_dir: Path, log=print, judge=None,
         return spec_runner.run_spec(the_spec, device, cam, out_dir, log=log, judge=judge, must_see=must_see)
 
 
-def run(user_request: str, flash: bool = False, port: str = None, log=print, get_code=None,
+def run(*args, **kwargs):
+    with host_sim.source_lock():
+        return _run(*args, **kwargs)
+
+
+def _run(user_request: str, flash: bool = False, port: str = None, log=print, get_code=None,
         history=None, test: bool = False, judge=None, open_device=None, open_camera=None,
-        get_requirements=None) -> Result:
+        get_requirements=None, simulate=None, presentation_theme=None, palette_mode=None) -> Result:
     """get_code(system_prompt, messages) -> str replaces the AI call, judge /
     open_device / open_camera replace the hardware (used for testing).
     get_requirements(requests) -> dict replaces requirements.derive; by default it
     only runs when the AI writes the UI (not for a saved reply).
-    test only applies when flash is on: the tests run on the board."""
+    Without flash, host tests always run. With flash, test selects board tests."""
     system_prompt = PROMPT_FILE.read_text(encoding="utf-8")
     source = "the saved reply" if get_code else (os.environ.get("GENERATOR_PROVIDER") or "gemini")
     get_code = get_code or default_generator()
-    pio = find_pio()
-    test = test and flash
+    simulate = not flash if simulate is None else simulate
+    palette_mode=palette_mode or os.environ.get('SIM_TEST_PALETTES','selected')
+    if palette_mode not in ('selected','both'):raise RuntimeError('SIM_TEST_PALETTES must be selected or both')
+    if simulate and palette_mode=='selected':
+        system_prompt+='\nHost execution context: no camera is used. Test only the requested palette (light/white by default when requested); write capture colour criteria for that palette. The earlier dark-camera testing rule applies to the board camera workflow, not this host run. Keep all widget and hardware rules unchanged.'
+    if simulate:
+        system_prompt+='\nLayout checks follow the requested task, not a centre-everything rule. For compact game boards, centre the whole board and related controls, not every label. LVGL containers inherit theme padding: child positions include that padding. Use actual usable content width, or set explicit padding before positioning. Do not use scrolling to hide a misplaced compact layout; legitimate requested lists may scroll.'
+    if simulate and flash:
+        raise RuntimeError('Host simulation cannot flash a board. Choose one target.')
+    pio = None if simulate else find_pio()
+    test = True if simulate else test and flash
     env = TEST_ENV if test else PIO_ENV
     run_dir = new_run_dir(user_request)
     log(f"Run folder: {run_dir}")
 
-    backup = TARGET.read_text(encoding="utf-8") if TARGET.exists() else None
-    theme_backup = THEME_FILE.read_text(encoding="utf-8") if THEME_FILE.exists() else None
+    backup = TARGET.read_bytes() if TARGET.exists() else None
+    theme_backup = THEME_FILE.read_bytes() if THEME_FILE.exists() else None
+    spec_backup = SPEC_FILE.read_bytes() if SPEC_FILE.exists() else None
     messages, _ = build_messages(user_request, history)
 
     # Independent acceptance criteria, before the builder sees anything.
-    if get_requirements is None and source != "the saved reply":
+    if get_requirements is None and source != "the saved reply" and not simulate:
         get_requirements = requirements.derive
     req = None
     if get_requirements:
@@ -300,28 +327,91 @@ def run(user_request: str, flash: bool = False, port: str = None, log=print, get
                 if the_spec is not None and not spec_problems:
                     problems += spec_module.check_against_code(the_spec, code)
             problems = validator.validate(code) + problems
+            if the_spec is not None and presentation_theme in ('light','dark') and the_spec.get('theme','dark')!=presentation_theme:
+                problems.append(f'The requested finished theme is {presentation_theme}, but ui_spec.json declares {the_spec.get("theme","dark")}. Set theme to {presentation_theme}; provide both UI_LIGHT_THEME palettes with identical text/state/layout. Dark checks still run first.')
             accepted_reply = spec_module.join_reply(code, spec_text)
 
             if problems:
+                (attempt_dir / 'validation.json').write_text(json.dumps({'problems': problems}, indent=2), encoding='utf-8')
                 REJECTED_FILE.write_text(code, encoding="utf-8")
                 log(f"Rejected by rule check ({len(code)} chars, saved to {REJECTED_FILE.name}):\n  - "
                     + "\n  - ".join(problems))
                 feedback = "Your reply broke these rules:\n- " + "\n- ".join(problems)
             else:
                 TARGET.write_text(code, encoding="utf-8")
+                SPEC_FILE.write_text(spec_text, encoding="utf-8")
                 wanted = the_spec.get("theme", "dark")
                 # Tests and photos always run in dark colours; without tests the
                 # wanted theme goes straight on.
-                write_theme(wanted == "light" and not test)
+                initial_theme=wanted if simulate and palette_mode=='selected' else 'dark'
+                write_theme(wanted == "light" and (not test or simulate and palette_mode=='selected'))
                 log(f"Rule check passed ({len(the_spec['tests'])} tests, {wanted} theme wanted). Compiling...")
-                compiled, errors = compile_ui(pio, env)
+                if simulate:
+                    compiled, errors, host_exe = host_sim.compile_host(attempt_dir / ('native-'+initial_theme))
+                else:
+                    compiled, errors = compile_ui(pio, env)
                 if not compiled:
                     log("Compile failed:\n" + errors)
                     feedback = "Your code failed to compile:\n" + errors
                 else:
                     log("Compiled successfully.")
-                    themes = {"theme": "light" if wanted == "light" and not test else "dark",
+                    themes = {"theme": initial_theme if simulate else "light" if wanted == "light" and not test else "dark",
                               "theme_wanted": wanted, "not_possible": not_possible}
+                    if simulate:
+                        log('Running the same test protocol on PC LVGL (no board or camera)...')
+                        try:
+                            report = host_sim.run_tests(the_spec, host_exe, attempt_dir / 'tests', log)
+                        except device_runner.DeviceError as exc:
+                            report = {'passed':False,'checks_passed':0,'checks_total':1,'photos':0,
+                                      'failures':[{'kind':'host','test':'startup','expected':'responsive PC UI', 'actual':str(exc)}]}
+                        last_report = report
+                        log(f"Host tests: {report['checks_passed']}/{report['checks_total']} checks passed.")
+                        if report['passed']:
+                            builds = {initial_theme:host_exe}
+                            if wanted == 'light' and palette_mode=='both':
+                                log('Dark checks passed. Building and checking the requested light palette...')
+                                write_theme(True)
+                                light_ok, light_error, light_exe = host_sim.compile_host(attempt_dir / 'native-light')
+                                if light_ok:
+                                    try:
+                                        light_report = host_sim.run_tests(the_spec, light_exe, attempt_dir / 'tests_light', log)
+                                        light_ok = light_report['passed'] and host_sim.equivalent_palettes(attempt_dir/'tests',attempt_dir/'tests_light')
+                                        light_error = (spec_runner.describe_failures(light_report['failures']) if not light_report['passed'] else
+                                                       '\n'.join(host_sim.palette_differences(attempt_dir/'tests',attempt_dir/'tests_light')) or 'Light state/layout differs.')
+                                    except device_runner.DeviceError as exc:
+                                        light_ok, light_error = False, str(exc)
+                                if light_ok:
+                                    builds['light'] = light_exe
+                                    themes['theme'] = 'light'
+                                else:
+                                    log('Light palette failed. Asking for a repair: ' + light_error)
+                                    write_theme(False)
+                                    last_report={'passed':False,'checks_passed':0,'checks_total':1,
+                                                 'failures':[{'kind':'palette','test':'requested light theme','expected':'same state/layout and passing checks','actual':light_error}]}
+                                    feedback = ('Dark tests passed, but the requested light palette failed: ' + light_error +
+                                                '\nFix both palettes. UI_LIGHT_THEME may change colours only; never widget text, checked state, layout or behaviour.')
+                                    messages.append(('model',accepted_reply))
+                                    messages.append(('user',feedback+'\nReturn both complete files again, in the same format.'))
+                                    (attempt_dir/'repair-feedback.txt').write_text(feedback,encoding='utf-8')
+                                    continue
+                            manifest = host_sim.publish(the_spec, builds, themes['theme'], run_dir)
+                            keep_new = True
+                            log('Ready for real board: pio run -e lvgl_ui_test -t upload')
+                            log('Exact generated_ui.cpp SHA-256: ' + manifest['source_sha256'])
+                            return Result(ok=True,reply=accepted_reply,tests='passed',run_dir=run_dir,
+                                          checks_passed=report['checks_passed'],checks_total=report['checks_total'],
+                                          photos=report.get('photos',0),visual=report.get('visual',False),
+                                          palette_mode=palette_mode,
+                                          target='host',source_sha256=manifest['source_sha256'],**themes)
+                        failures = spec_runner.describe_failures(report['failures'])
+                        log('Failed host checks:\n' + failures)
+                        feedback = ('The UI compiled and ran on PC LVGL using the same firmware UI and test hooks. '
+                                    'These checks failed:\n' + failures + '\nFix generated_ui.cpp. Only change a test if it contradicts what the user asked for; never weaken a test just to make it pass. Preserve all requested functionality.')
+                        (attempt_dir/'repair-feedback.txt').write_text(feedback,encoding='utf-8')
+                        log(f'Repair needed: {len(report["failures"])} failed checks. Continuing with attempt {attempt+1}/{MAX_ATTEMPTS}.' if attempt<MAX_ATTEMPTS else 'Repair budget exhausted; preserving the previous UI.')
+                        messages.append(('model', accepted_reply))
+                        messages.append(('user', feedback + '\nReturn both complete files again, in the same format.'))
+                        continue
                     if not flash:
                         keep_new = True
                         return Result(ok=True, reply=accepted_reply, run_dir=run_dir, **themes)
@@ -381,21 +471,32 @@ def run(user_request: str, flash: bool = False, port: str = None, log=print, get
                         "what the user asked for; never weaken a test just to make it pass."
                     )
 
+            (attempt_dir/'repair-feedback.txt').write_text(feedback,encoding='utf-8')
+            log(f'Repair needed. Continuing with attempt {attempt+1}/{MAX_ATTEMPTS}.' if attempt<MAX_ATTEMPTS else 'Repair budget exhausted; preserving the previous UI.')
             messages.append(("model", accepted_reply))
             messages.append(("user", feedback + "\nReturn both complete files again, in the same format."))
 
         log(f"Giving up after {MAX_ATTEMPTS} attempts; previous UI restored.")
-        result = Result(ok=False, run_dir=run_dir, not_possible=not_possible)
+        result = Result(ok=False, run_dir=run_dir, not_possible=not_possible, target='host' if simulate else 'board', problem=feedback,
+                        repair_history=messages[:1]+messages[-2:])
         if last_report:
             result.tests = "failed"
             result.checks_passed = last_report["checks_passed"]
             result.checks_total = last_report["checks_total"]
+            result.failures = last_report['failures']
         return result
     finally:
-        if not keep_new and backup is not None:
-            TARGET.write_text(backup, encoding="utf-8")
+        if not keep_new:
+            if backup is not None:
+                TARGET.write_bytes(backup)
+            else:
+                TARGET.unlink(missing_ok=True)
             if theme_backup is not None:
-                THEME_FILE.write_text(theme_backup, encoding="utf-8")
+                THEME_FILE.write_bytes(theme_backup)
+            if spec_backup is not None:
+                SPEC_FILE.write_bytes(spec_backup)
+            else:
+                SPEC_FILE.unlink(missing_ok=True)
             if board_changed:
                 log("Putting the previous UI back on the board...")
                 compiled, _ = compile_ui(pio, env)

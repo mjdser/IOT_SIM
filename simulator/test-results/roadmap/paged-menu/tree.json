@@ -1,0 +1,93 @@
+{
+  "screen": [
+    240,
+    320
+  ],
+  "widgets": [
+    {
+      "id": "nav_previous",
+      "type": "btn",
+      "x": 6,
+      "y": 280,
+      "w": 108,
+      "h": 32,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Previous"
+    },
+    {
+      "id": "nav_next",
+      "type": "btn",
+      "x": 126,
+      "y": 280,
+      "w": 108,
+      "h": 32,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Next"
+    },
+    {
+      "id": "menu_0",
+      "type": "btn",
+      "x": 14,
+      "y": 46,
+      "w": 208,
+      "h": 36,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Item 1"
+    },
+    {
+      "id": "menu_1",
+      "type": "btn",
+      "x": 14,
+      "y": 94,
+      "w": 208,
+      "h": 36,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Item 2"
+    },
+    {
+      "id": "menu_2",
+      "type": "btn",
+      "x": 14,
+      "y": 142,
+      "w": 208,
+      "h": 36,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Item 3"
+    },
+    {
+      "id": "menu_3",
+      "type": "btn",
+      "x": 14,
+      "y": 190,
+      "w": 208,
+      "h": 36,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Item 4"
+    },
+    {
+      "id": "lbl_menu",
+      "type": "label",
+      "x": 14,
+      "y": 248,
+      "w": 208,
+      "h": 16,
+      "visible": true,
+      "checked": false,
+      "disabled": false,
+      "text": "Selected item: 4"
+    }
+  ],
+  "overflow": false
+}

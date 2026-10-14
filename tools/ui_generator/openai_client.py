@@ -31,6 +31,11 @@ def _text(content) -> str:
         return content
     return "".join(p.get("text", "") for p in content)
 
+def _content(content):
+    if isinstance(content,str):return content
+    if any(p.get('type')=='image_url' for p in content):return content
+    return _text(content)
+
 
 def _request(body: dict, key: str, timeout: int) -> dict:
     req = urllib.request.Request(
@@ -64,12 +69,12 @@ def _request(body: dict, key: str, timeout: int) -> dict:
 
 
 def generate(system_prompt: str, messages, model: str = None, timeout: int = 300,
-             sleep=time.sleep, **_ignored) -> str:
+             sleep=time.sleep, json_output=False, key_var='OPENAI_API_KEY', **_ignored) -> str:
     """messages: list of (role, content) with role 'user' or 'model'. Returns the reply text.
     Temperature is left at the model default: some OpenAI models reject other values."""
-    key = os.environ.get("OPENAI_API_KEY")
+    key = os.environ.get(key_var)
     if not key:
-        raise GeminiError("OPENAI_API_KEY is not set. Put it in .env or set it in the terminal.",
+        raise GeminiError(key_var+" is not set. Put it in .env or set it in the terminal.",
                           "The assistant isn't set up yet (the API key is missing).")
     model = model or os.environ.get("OPENAI_MODEL")
     if not model:
@@ -78,10 +83,11 @@ def generate(system_prompt: str, messages, model: str = None, timeout: int = 300
     body = {
         "model": model,
         "messages": [{"role": "system", "content": system_prompt}] + [
-            {"role": "assistant" if role == "model" else "user", "content": _text(content)}
+            {"role": "assistant" if role == "model" else "user", "content": _content(content)}
             for role, content in messages
         ],
     }
+    if json_output:body['response_format']={'type':'json_object'}
 
     last_error = None
     for attempt, delay in enumerate((0,) + RETRY_DELAYS):

@@ -77,7 +77,7 @@ def _check_step(step, where, problems):
     kind, arg = next(iter(step.items()))
     if kind == "tap":
         if not isinstance(arg, str) or not ID_RE.match(arg):
-            problems.append(f"{where}: tap needs a widget id")
+            problems.append(f"{where}: invalid tap widget id {arg!r}; use 1-23 lowercase letters/digits/underscores, starting with a lowercase letter (for example key_h, not key_H). Use the same exact id in ui_register() and the tests; lowercase dynamically constructed ids too.")
     elif kind == "drag":
         if (not isinstance(arg, list) or len(arg) != 2 or not isinstance(arg[0], str)
                 or not ID_RE.match(arg[0]) or type(arg[1]) is not int):

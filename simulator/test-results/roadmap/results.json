@@ -1,0 +1,721 @@
+{
+  "purpose": "Roadmap capability smoke test; manually authored fixture, not AI generation certification",
+  "api_calls": 0,
+  "passed": true,
+  "checks_passed": 103,
+  "checks_total": 103,
+  "checks": [
+    {
+      "feature": "Protocol",
+      "check": "PING",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TREE portrait",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Calculator",
+      "check": "initial result",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID digit_2",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID digit_3",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID btn_add",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Calculator",
+      "check": "2 + 3 = 5",
+      "passed": true,
+      "actual": "Result: 5"
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID btn_count",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID btn_count",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Counter",
+      "check": "increments twice",
+      "passed": true,
+      "actual": "Count: 2"
+    },
+    {
+      "feature": "calculator-counter",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "calculator-counter",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID nav_next",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Multiple screens",
+      "check": "old controls hidden and new controls visible",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID sw_light",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Settings",
+      "check": "switch state matches label",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID cb_enabled",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Settings",
+      "check": "checkbox checked",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Settings",
+      "check": "real injected slider drag",
+      "passed": true,
+      "actual": [
+        73,
+        null
+      ]
+    },
+    {
+      "feature": "Settings",
+      "check": "slider updates text",
+      "passed": true,
+      "actual": "Brightness: 73"
+    },
+    {
+      "feature": "settings",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "settings",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID nav_previous",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Multiple screens",
+      "check": "navigation round trip",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID btn_mock",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Dashboard",
+      "check": "bar mock value",
+      "passed": true,
+      "actual": {
+        "id": "bar_level",
+        "type": "bar",
+        "x": 18,
+        "y": 51,
+        "w": 194,
+        "h": 16,
+        "visible": true,
+        "checked": false,
+        "disabled": false,
+        "value": 75
+      }
+    },
+    {
+      "feature": "Dashboard",
+      "check": "arc mock value",
+      "passed": true,
+      "actual": {
+        "id": "arc_level",
+        "type": "arc",
+        "x": 18,
+        "y": 91,
+        "w": 100,
+        "h": 100,
+        "visible": true,
+        "checked": false,
+        "disabled": false,
+        "value": 75
+      }
+    },
+    {
+      "feature": "Dashboard",
+      "check": "LED brightness",
+      "passed": true,
+      "actual": {
+        "id": "led_level",
+        "type": "led",
+        "x": 161,
+        "y": 121,
+        "w": 30,
+        "h": 30,
+        "visible": true,
+        "checked": false,
+        "disabled": false,
+        "value": 200
+      }
+    },
+    {
+      "feature": "Dashboard",
+      "check": "mock label",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Dashboard",
+      "check": "arc value injection",
+      "passed": true,
+      "actual": [
+        40,
+        null
+      ]
+    },
+    {
+      "feature": "dashboard",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "dashboard",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID key_h",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID key_e",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID key_l",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID key_l",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID key_o",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "English keyboard",
+      "check": "all 26 keys registered",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "English keyboard",
+      "check": "types HELLO",
+      "passed": true,
+      "actual": "HELLO"
+    },
+    {
+      "feature": "keyboard",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "keyboard",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID key_delete",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "English keyboard",
+      "check": "delete",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID key_clear",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "English keyboard",
+      "check": "clear",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID cell_0_0",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID cell_1_0",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID cell_0_1",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID cell_1_1",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID cell_0_2",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Simple games",
+      "check": "X row wins",
+      "passed": true,
+      "actual": "X wins"
+    },
+    {
+      "feature": "tic-tac-toe",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "tic-tac-toe",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID btn_new_game",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Simple games",
+      "check": "new game resets state",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID btn_dark",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Themes",
+      "check": "actual dark framebuffer differs",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Themes",
+      "check": "dark background pixels",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "dark-theme",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "dark-theme",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID btn_light",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Themes",
+      "check": "light round trip identical",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID btn_purple",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Preset colours",
+      "check": "purple state",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Symbols",
+      "check": "LVGL symbols present",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "colours-symbols",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "colours-symbols",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID menu_3",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Paged menu",
+      "check": "menu selection callback",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "paged-menu",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "paged-menu",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "RESET_UI clears menu selection",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID tile_0",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID tile_1",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Memory game",
+      "check": "mismatch hides both tiles",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID tile_0",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID tile_2",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Memory game",
+      "check": "first pair matched",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID tile_1",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "TAP_ID tile_3",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Memory game",
+      "check": "both pairs matched",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "memory-game",
+      "check": "visible layout fits without text/control overlap",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "feature": "memory-game",
+      "check": "240x320 RGB565 framebuffer",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Memory game",
+      "check": "reset clears pairs",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Protocol",
+      "check": "WAIT_IDLE",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Swipe / scroll",
+      "check": "SWIPE not in existing protocol",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Keyboard / forms",
+      "check": "TYPE not in existing protocol",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Generator rules",
+      "check": "supported fixture passes validator",
+      "passed": true,
+      "actual": []
+    },
+    {
+      "feature": "Stopwatch / timer",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "creates timers",
+        "uses unapproved widget lv_timer_create"
+      ]
+    },
+    {
+      "feature": "Animations",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses animations"
+      ]
+    },
+    {
+      "feature": "Native dropdown",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses unapproved widget lv_dropdown_create"
+      ]
+    },
+    {
+      "feature": "Native roller",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses unapproved widget lv_roller_create"
+      ]
+    },
+    {
+      "feature": "Native chart",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses unapproved widget lv_chart_create"
+      ]
+    },
+    {
+      "feature": "Native text field",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses unapproved widget lv_textarea_create"
+      ]
+    },
+    {
+      "feature": "Native keyboard",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses unapproved widget lv_keyboard_create"
+      ]
+    },
+    {
+      "feature": "Image asset widget",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses unapproved widget lv_img_create"
+      ]
+    },
+    {
+      "feature": "Real clock",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses Arduino timing functions"
+      ]
+    },
+    {
+      "feature": "Extra language font",
+      "check": "current generator gate rejects unsupported feature",
+      "passed": true,
+      "actual": [
+        "uses a font other than lv_font_montserrat_14"
+      ]
+    },
+    {
+      "feature": "Arabic / Hebrew",
+      "check": "RTL disabled",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Arabic / Hebrew",
+      "check": "Arabic shaping disabled",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Arabic / Hebrew",
+      "check": "generator explicitly ASCII-only",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Large UIs",
+      "check": "registered-widget cap present",
+      "passed": true,
+      "actual": null
+    },
+    {
+      "feature": "Isolation",
+      "check": "accepted generated_ui.cpp unchanged",
+      "passed": true,
+      "actual": null
+    }
+  ],
+  "blocked_by_current_rules": {
+    "Stopwatch / timer": [
+      "creates timers",
+      "uses unapproved widget lv_timer_create"
+    ],
+    "Animations": [
+      "uses animations"
+    ],
+    "Native dropdown": [
+      "uses unapproved widget lv_dropdown_create"
+    ],
+    "Native roller": [
+      "uses unapproved widget lv_roller_create"
+    ],
+    "Native chart": [
+      "uses unapproved widget lv_chart_create"
+    ],
+    "Native text field": [
+      "uses unapproved widget lv_textarea_create"
+    ],
+    "Native keyboard": [
+      "uses unapproved widget lv_keyboard_create"
+    ],
+    "Image asset widget": [
+      "uses unapproved widget lv_img_create"
+    ],
+    "Real clock": [
+      "uses Arduino timing functions"
+    ],
+    "Extra language font": [
+      "uses a font other than lv_font_montserrat_14"
+    ]
+  },
+  "accepted_source_sha256": "0cd1701735126b2d21c93ab71d752ea65c55ab5d79b7bdeff53847ff880f2bb3"
+}

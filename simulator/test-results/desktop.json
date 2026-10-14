@@ -1,0 +1,16 @@
+{
+  "raycast": true,
+  "clickedNote": true,
+  "cameraAspect": true,
+  "cameraAtLens": true,
+  "themePreservesState": true,
+  "nearest": true,
+  "cameraBlur": true,
+  "glassSharp": true,
+  "walk": true,
+  "noGLError": true,
+  "pointerClick": true,
+  "orbitDrag": true,
+  "panDrag": true,
+  "scrollDolly": true
+}

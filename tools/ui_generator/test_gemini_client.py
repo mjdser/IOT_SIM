@@ -90,5 +90,26 @@ class RetryTests(unittest.TestCase):
         self.assertIn("API key is missing", ctx.exception.user_message)
 
 
+class LatencyConfigurationTests(unittest.TestCase):
+    def test_configured_timeout_and_thinking_reach_gemini3(self):
+        with mock.patch.dict(os.environ, {"GEMINI_API_KEY":"k", "GEMINI_REQUEST_TIMEOUT":"300",
+                                         "GEMINI_THINKING_LEVEL":"low"}, clear=True), \
+                mock.patch.object(g,"_request",return_value=OK) as req:
+            g.generate("s",[("user","x")],model="gemini-3.8-flash",fallback_model="")
+        self.assertEqual(req.call_args.args[3],300)
+        self.assertEqual(req.call_args.args[1]["generationConfig"]["thinkingConfig"],{"thinkingLevel":"low"})
+
+    def test_older_model_fallback_does_not_receive_unsupported_thinking_level(self):
+        with mock.patch.dict(os.environ, {"GEMINI_API_KEY":"k", "GEMINI_THINKING_LEVEL":"low"}, clear=True), \
+                mock.patch.object(g,"_request",side_effect=[err(switch=True),OK]) as req:
+            g.generate("s",[("user","x")],model="gemini-3.8-flash",fallback_model="gemini-2.5-flash",sleep=lambda _:None)
+        self.assertNotIn("thinkingConfig",req.call_args_list[-1].args[1]["generationConfig"])
+
+    def test_explicit_timeout_still_overrides_environment(self):
+        with mock.patch.dict(os.environ, {"GEMINI_API_KEY":"k", "GEMINI_REQUEST_TIMEOUT":"300"}, clear=True), \
+                mock.patch.object(g,"_request",return_value=OK) as req:
+            g.generate("s",[("user","x")],timeout=20,fallback_model="")
+        self.assertEqual(req.call_args.args[3],20)
+
 if __name__ == "__main__":
     unittest.main()

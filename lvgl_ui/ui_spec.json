@@ -1,0 +1,95 @@
+{
+  "intent": "Dashboard showing system load using bars, arcs, LEDs, and chart columns",
+  "theme": "light",
+  "visual_rubric": [
+    "The screen has a bright light background",
+    "Title reads SYSTEM DASHBOARD at the top",
+    "A circular arc shows CPU Load",
+    "LED indicators and a Boost switch are visible",
+    "A horizontal bar indicates memory usage",
+    "Vertical bars represent channel activity chart"
+  ],
+  "tests": [
+    {
+      "name": "initial dashboard state",
+      "steps": [
+        {
+          "capture": {
+            "label": "initial_view",
+            "expect_visual": [
+              "The screen background is light",
+              "CPU Load arc shows 65%",
+              "Boost switch is off",
+              "Memory Usage shows 42%"
+            ]
+          }
+        },
+        {
+          "expect": {
+            "arc_cpu": { "value": 65 },
+            "lbl_cpu_val": { "text": "65%" },
+            "sw_boost": { "checked": false },
+            "lbl_mode": { "text": "NORMAL" },
+            "bar_mem": { "value": 42 },
+            "lbl_mem_val": { "text": "42%" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "toggle boost mode",
+      "steps": [
+        { "tap": "sw_boost" },
+        {
+          "expect": {
+            "sw_boost": { "checked": true },
+            "lbl_mode": { "text": "TURBO" },
+            "bar_mem": { "value": 84 },
+            "lbl_mem_val": { "text": "84%" }
+          }
+        },
+        {
+          "capture": {
+            "label": "turbo_active",
+            "expect_visual": [
+              "The mode label reads TURBO",
+              "The switch knob moved to the right",
+              "Memory usage bar is filled significantly higher"
+            ]
+          }
+        },
+        { "tap": "sw_boost" },
+        {
+          "expect": {
+            "sw_boost": { "checked": false },
+            "lbl_mode": { "text": "NORMAL" },
+            "bar_mem": { "value": 42 },
+            "lbl_mem_val": { "text": "42%" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "adjust cpu arc gauge",
+      "steps": [
+        { "drag": ["arc_cpu", 90] },
+        {
+          "expect": {
+            "arc_cpu": { "value": 90 },
+            "lbl_cpu_val": { "text": "90%" },
+            "bar_c2": { "value": 90 }
+          }
+        },
+        {
+          "capture": {
+            "label": "arc_adjusted",
+            "expect_visual": [
+              "CPU load label reads 90%",
+              "The arc fill covers most of the circle"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

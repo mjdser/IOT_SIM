@@ -1,6 +1,7 @@
 """Command-line version of the generator.
 
-    python tools/ui_generator/generate.py "a light switch with a brightness slider" --flash
+    python tools/ui_generator/generate.py "a light switch with a brightness slider" --sim
+    python tools/ui_generator/generate.py "..." --flash           # explicit board upload
     python tools/ui_generator/generate.py "..." --test            # flash, run the tests, use the camera
     python tools/ui_generator/generate.py "..." --code-file reply.txt   # skip Gemini
 
@@ -21,11 +22,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("request", help="the interface you want")
     ap.add_argument("--flash", action="store_true", help="upload to the board after it compiles")
-    ap.add_argument("--test", action="store_true", help="flash, then run the UI's tests on the board")
+    ap.add_argument("--test", action="store_true", help="legacy board path: flash, then run board tests")
+    ap.add_argument("--sim", action="store_true", help="compile/test on PC and reload the bench (default without --flash/--test)")
     ap.add_argument("--port", help="upload/serial port, e.g. COM4")
     ap.add_argument("--code-file", help="use this file as the model reply instead of calling Gemini")
     ap.add_argument("--spec-file", help="ui_spec.json to pair with a bare --code-file")
     args = ap.parse_args()
+    if args.sim and (args.flash or args.test):
+        ap.error('--sim cannot be combined with --flash or --test')
 
     get_code = None
     if args.code_file:
