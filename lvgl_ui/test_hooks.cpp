@@ -17,6 +17,7 @@
 
 #include "test_hooks.h"
 #include "generated_ui.h"
+#include "board_capture.h"
 
 #include <Arduino.h>
 #include <lvgl.h>
@@ -272,6 +273,7 @@ static void print_tree(void) {
 static void handle_command(char *line) {
     char *cmd = strtok(line, " ");
     if (!cmd) return;
+    if (board_capture_command(cmd)) return;
 
     if (strcmp(cmd, "PING") == 0) {
         Serial.println("@@OK");

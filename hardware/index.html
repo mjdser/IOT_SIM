@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>IOT — Real device</title>
+<style>
+body{margin:0;font:15px system-ui;background:#edf1f3;color:#17272c}header{background:#17272c;color:white;padding:16px 24px}main{display:flex;gap:24px;padding:20px;flex-wrap:wrap}.device{width:380px}iframe{flex:1;min-width:420px;height:85vh;border:1px solid #ccd4d8;border-radius:8px;background:white}canvas{width:240px;height:320px;image-rendering:pixelated;background:#ccd4d8;border:12px solid #a63636;display:block;margin:18px auto;touch-action:none}button,select{padding:10px;margin:4px 0;font:inherit}button{cursor:pointer}#status{min-height:50px}small{display:block;color:#4e6268;line-height:1.5}#details{word-break:break-all}#notice{color:#9e3122}
+</style>
+<header><strong>IOT · Real ESP32</strong> — USB screen capture</header>
+<main><section class="device">
+<p id="status">Looking for the ESP32…</p>
+<canvas id="glass" width="240" height="320"></canvas>
+<small id="age"></small>
+<button id="capture">Save screenshot</button> <button id="reset">Reset UI</button>
+<details><summary>First connection / install firmware</summary>
+<p>Select your ESP32. Installing replaces its current firmware with the current generated UI and screenshot support.</p>
+<select id="ports"></select><button id="install">Install capture firmware</button>
+<p id="installResult"></p></details>
+<p id="notice"></p><small id="details"></small>
+<p><small>The interface runs on the ESP32. This is a periodically refreshed copy of rendered pixels, not a camera image or a CPU simulator. Captures add USB traffic and pause UI input briefly.</small></p>
+</section><iframe src="/" title="Existing UI chat"></iframe></main>
+<script>
+let state={},start=null,acting=false;
+const $=id=>document.getElementById(id),ctx=$('glass').getContext('2d');
+async function action(data){acting=true;try{
+ const r=await fetch('/api/hardware/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+ const result=await r.json();if(!r.ok)throw Error(result.error);
+ $('notice').textContent=result.saved?'Saved: '+result.saved:'';
+}catch(e){$('notice').textContent=e.message;}finally{acting=false;}}
+function point(e){const r=$('glass').getBoundingClientRect();return{x:Math.max(0,Math.min(239,Math.floor((e.clientX-r.left-12)*240/(r.width-24)))),y:Math.max(0,Math.min(319,Math.floor((e.clientY-r.top-12)*320/(r.height-24))))};}
+$('glass').onpointerdown=e=>{start=point(e);$('glass').setPointerCapture(e.pointerId);};
+$('glass').onpointerup=e=>{
+ if(!start||!state.connected||state.busy||acting)return;const end=point(e),a=start;start=null;
+ const w=(state.tree?.widgets||[]).find(w=>w.type==='slider'&&w.visible&&!w.disabled&&a.x>=w.x-6&&a.x<w.x+w.w+6&&a.y>=w.y-10&&a.y<w.y+w.h+10);
+ const range=w&&(state.ranges||[]).find(r=>r.x===w.x&&r.y===w.y&&r.w===w.w&&r.h===w.h);
+ if(range){let f=w.w>=w.h?(end.x-w.x)/Math.max(1,w.w-1):(w.y+w.h-1-end.y)/Math.max(1,w.h-1);f=Math.max(0,Math.min(1,f));action({action:'drag',id:w.id,value:Math.round(range.min+f*(range.max-range.min))});}
+ else action({action:'tap',...end});
+};
+$('capture').onclick=()=>action({action:'capture'});$('reset').onclick=()=>action({action:'reset'});
+$('install').onclick=()=>{if(confirm('Replace firmware on '+$('ports').value+' with this project’s ESP32 UI and screenshot support?'))action({action:'install',port:$('ports').value,confirm:true});};
+async function poll(){try{
+ const r=await fetch('/api/hardware');if(!r.ok)throw Error('Hardware server unavailable');state=await r.json();
+ $('status').textContent=state.message;$('capture').disabled=$('reset').disabled=!state.connected||state.busy;
+ $('install').disabled=state.busy||!state.ports?.length;
+ const options=(state.ports||[]).map(p=>p.port).join('|');if($('ports').dataset.options!==options){$('ports').replaceChildren(...(state.ports||[]).map(p=>new Option(p.port+' — '+p.description,p.port)));$('ports').dataset.options=options;}
+ $('installResult').textContent=state.last_install||'';
+ $('details').textContent=state.connected?`${state.port} · ${state.info.theme} · 240×320 RGB565 · UI ${state.info.ui_sha256}`:'No board pixels available.';
+ $('age').textContent=state.frame?`Last board screenshot: ${Math.round(Date.now()/1000-state.captured_at)} seconds ago`:'';
+ if(state.frame){const raw=atob(state.frame),im=ctx.createImageData(240,320);for(let i=0;i<76800;i++){const p=raw.charCodeAt(i*2)|(raw.charCodeAt(i*2+1)<<8),o=i*4;im.data[o]=Math.round((p>>11)*255/31);im.data[o+1]=Math.round(((p>>5)&63)*255/63);im.data[o+2]=Math.round((p&31)*255/31);im.data[o+3]=255;}ctx.putImageData(im,0,0);}else ctx.clearRect(0,0,240,320);
+}catch(e){$('status').textContent='Disconnected from the hardware server.';ctx.clearRect(0,0,240,320);}finally{setTimeout(poll,750);}}
+poll();
+</script></html>

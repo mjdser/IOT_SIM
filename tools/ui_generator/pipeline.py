@@ -237,6 +237,9 @@ def run_tests(the_spec: dict, port: str, out_dir: Path, log=print, judge=None,
               open_device=None, open_camera=None, use_camera: bool = True, must_see=None) -> dict:
     """Opens the board and (if CAMERA_INDEX is set and use_camera) the camera, then
     runs the spec. Raises device_runner.DeviceError / camera.CameraError on setup problems."""
+    if os.environ.get('IOT_TARGET') == 'hardware_capture':
+        import hardware_target
+        return hardware_target.run_tests(the_spec, port, out_dir, log)
     open_device = open_device or (lambda: device_runner.Device(port, log=log))
     settings = camera.settings_from_env() if use_camera else None
     if not use_camera:
@@ -254,6 +257,14 @@ def run_tests(the_spec: dict, port: str, out_dir: Path, log=print, judge=None,
 
 def run(*args, **kwargs):
     with host_sim.source_lock():
+        if os.environ.get('IOT_TARGET') == 'hardware_capture':
+            import hardware_target
+            if not kwargs.get('flash') or not kwargs.get('test'):
+                raise RuntimeError('Hardware capture requires FLASH=1 and TESTS=1.')
+            with hardware_target.runtime.generation() as port:
+                kwargs['port']=port
+                kwargs['simulate']=False
+                return _run(*args, **kwargs)
         return _run(*args, **kwargs)
 
 
@@ -268,7 +279,10 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
     system_prompt = PROMPT_FILE.read_text(encoding="utf-8")
     source = "the saved reply" if get_code else (os.environ.get("GENERATOR_PROVIDER") or "gemini")
     get_code = get_code or default_generator()
+    hardware_capture = os.environ.get('IOT_TARGET') == 'hardware_capture'
     simulate = not flash if simulate is None else simulate
+    if hardware_capture:
+        system_prompt += '\nExecution context: compile and run on the actual ESP32. Capture RGB565 pixels from its LVGL flush over USB, not a camera. Use the requested palette directly (white/light by default). Earlier camera-specific dark-first instructions do not apply. All existing widget and hardware rules still apply.'
     palette_mode=palette_mode or os.environ.get('SIM_TEST_PALETTES','selected')
     if palette_mode not in ('selected','both'):raise RuntimeError('SIM_TEST_PALETTES must be selected or both')
     if simulate and palette_mode=='selected':
@@ -279,7 +293,7 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
         raise RuntimeError('Host simulation cannot flash a board. Choose one target.')
     pio = None if simulate else find_pio()
     test = True if simulate else test and flash
-    env = TEST_ENV if test else PIO_ENV
+    env = 'lvgl_ui_capture' if hardware_capture else TEST_ENV if test else PIO_ENV
     run_dir = new_run_dir(user_request)
     log(f"Run folder: {run_dir}")
 
@@ -343,8 +357,8 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
                 wanted = the_spec.get("theme", "dark")
                 # Tests and photos always run in dark colours; without tests the
                 # wanted theme goes straight on.
-                initial_theme=wanted if simulate and palette_mode=='selected' else 'dark'
-                write_theme(wanted == "light" and (not test or simulate and palette_mode=='selected'))
+                initial_theme=wanted if hardware_capture or simulate and palette_mode=='selected' else 'dark'
+                write_theme(wanted == "light" and (hardware_capture or not test or simulate and palette_mode=='selected'))
                 log(f"Rule check passed ({len(the_spec['tests'])} tests, {wanted} theme wanted). Compiling...")
                 if simulate:
                     compiled, errors, host_exe = host_sim.compile_host(attempt_dir / ('native-'+initial_theme))
@@ -355,7 +369,7 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
                     feedback = "Your code failed to compile:\n" + errors
                 else:
                     log("Compiled successfully.")
-                    themes = {"theme": initial_theme if simulate else "light" if wanted == "light" and not test else "dark",
+                    themes = {"theme": initial_theme if simulate or hardware_capture else "light" if wanted == "light" and not test else "dark",
                               "theme_wanted": wanted, "not_possible": not_possible}
                     if simulate:
                         log('Running the same test protocol on PC LVGL (no board or camera)...')
@@ -447,7 +461,10 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
                         continue
                     except (device_runner.DeviceError, camera.CameraError) as e:
                         log(f"Tests could not run: {e}")
-                        keep_new, board_changed = True, False  # stays dark: it wasn't checked
+                        keep_new, board_changed = True, False  # preserve candidate but do not claim it passed
+                        if hardware_capture:
+                            return Result(ok=False, reply=accepted_reply, flashed=True, tests="not_run",
+                                          target='hardware_capture', problem=str(e), run_dir=run_dir, **themes)
                         return Result(ok=True, reply=accepted_reply, flashed=True, tests="not_run",
                                       problem=str(e), run_dir=run_dir, **themes)
                     last_report = report
@@ -455,11 +472,13 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
                         f"{report['photos']} photos.")
                     if report["passed"]:
                         keep_new, board_changed = True, False
-                        if wanted == "light":
+                        if wanted == "light" and not hardware_capture:
                             switched, _ = switch_to_light(pio, port, env, the_spec,
                                                           attempt_dir / "tests_light", log, open_device)
                             themes["theme"] = "light" if switched else "dark"
                         return Result(ok=True, reply=accepted_reply, flashed=True, tests="passed",
+                                      target='hardware_capture' if hardware_capture else 'board',
+                                      source_sha256=host_sim.digest(TARGET), visual=report.get('visual',False),
                                       checks_passed=report["checks_passed"],
                                       checks_total=report["checks_total"],
                                       photos=report["photos"], run_dir=run_dir, **themes)

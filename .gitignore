@@ -12,3 +12,9 @@ simulator/build/
 simulator/build-cmake/
 simulator/captures/
 work/*.log
+
+# Local hardware screenshots, handoff archives and build evidence
+hardware/captures/
+hardware/HANDOFF.json
+IOT-hardware-handoff-*.zip
+work/

@@ -1,3 +1,7 @@
+> **Updated entry point:** use [hardware/README.md](hardware/README.md) for the
+> real-ESP32 USB screenshot workflow. `Start-IOT.cmd` now opens that mode.
+> The PC-to-board mirroring instructions below describe the legacy workflow.
+
 # IOT bench — handoff for fixing the program
 
 Give this file to whoever has to make the project work again, including another coding assistant. It describes the goal, the hardware, how the simulator and the physical screen stay together, and where to look when something breaks.

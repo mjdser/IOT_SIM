@@ -7,6 +7,7 @@
 #include <touch_calibration.h>
 #include "generated_ui.h"
 #include "test_hooks.h"
+#include "board_capture.h"
 
 static TFT_eSPI tft = TFT_eSPI();
 
@@ -19,6 +20,7 @@ static lv_color_t buf[SCREEN_W * 10];
 static void flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p) {
     uint32_t w = area->x2 - area->x1 + 1;
     uint32_t h = area->y2 - area->y1 + 1;
+    board_capture_strip(area, color_p);
     tft.startWrite();
     tft.setAddrWindow(area->x1, area->y1, w, h);
     tft.pushColors((uint16_t *)&color_p->full, w * h, true);
@@ -41,6 +43,10 @@ void setup() {
     tft.begin();
     tft.setRotation(0);
     loadOrCalibrateTouch(tft);
+#ifdef BOARD_CAPTURE
+    Serial.flush();
+    Serial.begin(921600);
+#endif
 
     lv_init();
 

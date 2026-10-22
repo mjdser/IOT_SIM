@@ -1,3 +1,22 @@
+# Current workflow: real ESP32 with USB screenshots
+
+`Start-IOT.cmd` and `Start-Hardware.cmd` now open the real-device workflow.
+The ESP32 runs the generated UI; the PC receives 240×320 RGB565 screenshots
+and sends the existing test commands. No PC UI simulation or camera runs in
+this mode. First firmware installation requires explicit confirmation.
+
+See [hardware setup and limitations](hardware/README.md) or
+[Arabic quick start](hardware/README_AR.md).
+
+ESP32 compilation and 65 offline checks passed. Physical USB capture, screen
+output and touch still need verification on the actual board. Screenshots are
+periodic, not real-time video. No physical board was flashed during preparation.
+
+`Start-Simulator.cmd` retains the earlier PC simulator with mirroring disabled.
+The older documentation below describes that earlier workflow.
+
+---
+
 # IOT — محاكي الطاولة
 
 هذا المجلد يحتوي على نسخة البرنامج الثابت الأصلية ومحاكي سطح مكتب للطاولة الموجودة في الصور.

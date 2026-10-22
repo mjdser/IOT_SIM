@@ -241,8 +241,8 @@ def run_spec(spec: dict, device, camera, out_dir: Path, log=print, judge=None, m
                     failure.update(test=name,step=n,label=arg['label'])
                 report.add(failures,checks)
                 report.add(*check_task_layout(device.tree(),intent))
-                geometry=device.geometry()
-                for key in geometry_keys(intent):
+                geometry=device.geometry() if hasattr(device, "geometry") else {}
+                for key in geometry_keys(intent) if hasattr(device, "geometry") else ():
                     value=geometry.get(key,0)
                     details=geometry.get('clipped_label_details',value) if key=='clipped_labels' else value
                     report.add(([{'kind':'layout','test':name,'step':n,'label':arg['label'],

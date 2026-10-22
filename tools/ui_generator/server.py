@@ -194,6 +194,12 @@ def result_message(result):
 
 def _result_message(result):
     more = " Tell me if you want anything changed."
+    if result.target == 'hardware_capture':
+        if result.ok and result.tests == 'passed':
+            return (f"Done! The real ESP32 passed {result.checks_total} checks. "
+                    + (f"The image judge reviewed {result.photos} device screenshots. " if result.visual else "Image judging was disabled. ")
+                    + "The PC displays pixels rendered by the board; no camera or CPU simulation is used.")
+        return "The firmware was uploaded but hardware checks did not complete: " + result.problem
     if result.target == 'host' and result.ok:
         colours = (' Checked in dark first, then switched to the requested light colours.'
                    if result.theme == 'light' and result.palette_mode=='both' else ' Showing the tested white/light colours.' if result.theme=='light' else ' Showing the tested dark colours.')
@@ -253,7 +259,7 @@ def handle_generate(sid, request):
         developer_log(line)
         # Show stages and test actions, keeping raw host output in the terminal.
         if line.startswith(('Attempt ', 'Rule check ', 'Rejected by rule check', 'Compile failed',
-                            'Compiled successfully', 'Running the same', 'Initial render', 'Test:',
+                            'Compiled successfully', 'Flashing', 'Flashed', 'Running the tests', 'Tests:', 'Running the same', 'Initial render', 'Test:',
                             'Test ', 'Host tests:', 'Dark checks', 'Giving up', 'Ready for real board', 'Repair needed', 'Repair budget', 'Light palette failed','Image judge:')):
             session['progress'] = line.split('\n')[0]
 
@@ -311,20 +317,36 @@ class Handler(BaseHTTPRequestHandler):
         return origin is None or origin in {f"http://{h}" for h in ALLOWED_HOSTS}
 
     def do_GET(self):
+        if os.environ.get('IOT_TARGET') == 'hardware_capture' and self._trusted() and self.path in ('/hardware', '/api/hardware'):
+            import hardware_target
+            if self.path == '/hardware':
+                return self._send(200, (pipeline.ROOT/'hardware/index.html').read_text(encoding='utf-8'), 'text/html')
+            return self._send(200, json.dumps(hardware_target.runtime.status()))
         if self.path == "/" and self._trusted():
             self._send(200, PAGE, "text/html")
         elif self.path == '/api/status' and self._trusted():
             gemini_client.load_dotenv()
             provider=os.environ.get('GENERATOR_PROVIDER','gemini')
-            self._send(200,json.dumps({'target':'board' if FLASH else 'PC simulator',
+            self._send(200,json.dumps({'target':'Real ESP32 / USB screenshots' if os.environ.get('IOT_TARGET')=='hardware_capture' else 'board' if FLASH else 'PC simulator',
                 'project':str(pipeline.ROOT),
                 'flash':FLASH,'provider':provider,'model':os.environ.get('OPENAI_MODEL' if provider=='openai' else 'GEMINI_MODEL',''),
-                'vision_judge':not FLASH and os.environ.get('SIM_VISION_JUDGE','0')!='0',
+                'vision_judge':(not FLASH or os.environ.get('IOT_TARGET')=='hardware_capture') and os.environ.get('SIM_VISION_JUDGE','0')!='0',
                 'key_configured':bool(os.environ.get('OPENAI_API_KEY' if provider=='openai' else 'GEMINI_API_KEY'))}))
         else:
             self._send(404, json.dumps({"error": "not found"}))
 
     def do_POST(self):
+        if self.path == '/api/hardware/action' and os.environ.get('IOT_TARGET') == 'hardware_capture':
+            if not self._trusted() or self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
+                return self._send(403, json.dumps({'error':'forbidden'}))
+            try:
+                size=int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= 2048: raise ValueError('Invalid request size')
+                import hardware_target
+                result=hardware_target.runtime.action(json.loads(self.rfile.read(size)))
+                return self._send(200,json.dumps(result))
+            except Exception as exc:
+                return self._send(400,json.dumps({'error':str(exc)}))
         if self.path not in ("/api/session", "/api/reset", "/api/generate", "/api/progress") or not self._trusted():
             return self._send(403, json.dumps({"error": "forbidden"}))
         if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
@@ -379,4 +401,7 @@ if __name__ == "__main__":
         f"on, camera {os.environ['CAMERA_INDEX']}" if os.environ.get("CAMERA_INDEX") else "on, no camera")
     print(f"Screen designer at http://{HOST}:{PORT}  (flash to board: {'on' if FLASH else 'off'}; "
           f"tests: {tests}; Ctrl+C to stop)")
+    if os.environ.get('IOT_TARGET') == 'hardware_capture':
+        import hardware_target
+        hardware_target.runtime.start()
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

@@ -1,94 +1,92 @@
 {
-  "intent": "Dashboard showing system load using bars, arcs, LEDs, and chart columns",
+  "intent": "Wheel balancing touchscreen workflow for car garage demo",
   "theme": "light",
   "visual_rubric": [
-    "The screen has a bright light background",
-    "Title reads SYSTEM DASHBOARD at the top",
-    "A circular arc shows CPU Load",
-    "LED indicators and a Boost switch are visible",
-    "A horizontal bar indicates memory usage",
-    "Vertical bars represent channel activity chart"
+    "A clean light theme with wheel selection buttons A and B at top",
+    "Mount and Guard toggle switches",
+    "Start Measurement button and state indicator label"
   ],
   "tests": [
     {
-      "name": "initial dashboard state",
+      "name": "measure and balance inner side",
       "steps": [
         {
           "capture": {
-            "label": "initial_view",
-            "expect_visual": [
-              "The screen background is light",
-              "CPU Load arc shows 65%",
-              "Boost switch is off",
-              "Memory Usage shows 42%"
-            ]
+            "label": "initial_setup",
+            "expect_visual": ["Wheel A is selected", "Mount and Guard switches are off", "State reads Ready to Measure"]
           }
         },
+        {"tap": "sw_mount"},
+        {"tap": "sw_guard"},
+        {"tap": "btn_measure"},
         {
-          "expect": {
-            "arc_cpu": { "value": 65 },
-            "lbl_cpu_val": { "text": "65%" },
-            "sw_boost": { "checked": false },
-            "lbl_mode": { "text": "NORMAL" },
-            "bar_mem": { "value": 42 },
-            "lbl_mem_val": { "text": "42%" }
+          "capture": {
+            "label": "measuring",
+            "expect_visual": ["State reads Measuring Wheel...", "Finish button is visible"]
           }
-        }
+        },
+        {"tap": "btn_finish"},
+        {"expect": {"lbl_state": {"text": "State: Results & Correction"}, "lbl_target": {"text": "Inner: 20g @ 90 deg"}}},
+        {"tap": "sw_guard"},
+        {"drag": ["sld_corr_wt", 20]},
+        {"drag": ["sld_corr_ang", 90]},
+        {"expect": {"lbl_eval": {"text": "Balanced"}}},
+        {
+          "capture": {
+            "label": "inner_balanced",
+            "expect_visual": ["Evaluation reads Balanced", "Weight is 20 g", "Angle is 90 deg"]
+          }
+        },
+        {"tap": "sw_guard"},
+        {"tap": "btn_measure"},
+        {"tap": "btn_finish"},
+        {"expect": {"lbl_eval": {"text": "Balanced"}}}
       ]
     },
     {
-      "name": "toggle boost mode",
+      "name": "balance outer side and view preservation",
       "steps": [
-        { "tap": "sw_boost" },
-        {
-          "expect": {
-            "sw_boost": { "checked": true },
-            "lbl_mode": { "text": "TURBO" },
-            "bar_mem": { "value": 84 },
-            "lbl_mem_val": { "text": "84%" }
-          }
-        },
-        {
-          "capture": {
-            "label": "turbo_active",
-            "expect_visual": [
-              "The mode label reads TURBO",
-              "The switch knob moved to the right",
-              "Memory usage bar is filled significantly higher"
-            ]
-          }
-        },
-        { "tap": "sw_boost" },
-        {
-          "expect": {
-            "sw_boost": { "checked": false },
-            "lbl_mode": { "text": "NORMAL" },
-            "bar_mem": { "value": 42 },
-            "lbl_mem_val": { "text": "42%" }
-          }
-        }
+        {"tap": "sw_mount"},
+        {"tap": "sw_guard"},
+        {"tap": "btn_measure"},
+        {"tap": "btn_finish"},
+        {"tap": "tab_outer"},
+        {"expect": {"lbl_target": {"text": "Outer: 35g @ 240 deg"}}},
+        {"tap": "sw_guard"},
+        {"drag": ["sld_corr_wt", 35]},
+        {"drag": ["sld_corr_ang", 240]},
+        {"expect": {"lbl_eval": {"text": "Balanced"}}},
+        {"tap": "tab_inner"},
+        {"tap": "tab_outer"},
+        {"expect": {"lbl_eval": {"text": "Balanced"}, "lbl_corr_wt": {"text": "Weight: 35 g"}}}
       ]
     },
     {
-      "name": "adjust cpu arc gauge",
+      "name": "abort measurement on guard open",
       "steps": [
-        { "drag": ["arc_cpu", 90] },
-        {
-          "expect": {
-            "arc_cpu": { "value": 90 },
-            "lbl_cpu_val": { "text": "90%" },
-            "bar_c2": { "value": 90 }
-          }
-        },
-        {
-          "capture": {
-            "label": "arc_adjusted",
-            "expect_visual": [
-              "CPU load label reads 90%",
-              "The arc fill covers most of the circle"
-            ]
-          }
-        }
+        {"tap": "sw_mount"},
+        {"tap": "sw_guard"},
+        {"tap": "btn_measure"},
+        {"expect": {"lbl_state": {"text": "State: Measuring Wheel..."}}},
+        {"tap": "sw_guard"},
+        {"expect": {"lbl_state": {"text": "State: Ready to Measure"}, "sw_guard": {"checked": false}, "btn_finish": {"disabled": true}}},
+        {"tap": "btn_finish"},
+        {"expect": {"lbl_state": {"text": "State: Ready to Measure"}}}
+      ]
+    },
+    {
+      "name": "switch profile clears state",
+      "steps": [
+        {"tap": "sw_mount"},
+        {"tap": "sw_guard"},
+        {"tap": "btn_measure"},
+        {"tap": "btn_finish"},
+        {"expect": {"lbl_target": {"text": "Inner: 20g @ 90 deg"}}},
+        {"tap": "btn_wheel_b"},
+        {"expect": {"lbl_state": {"text": "State: Ready to Measure"}}},
+        {"tap": "btn_measure"},
+        {"tap": "btn_finish"},
+        {"expect": {"lbl_target": {"text": "Inner: 15g @ 180 deg"}}}
       ]
     }
   ]
