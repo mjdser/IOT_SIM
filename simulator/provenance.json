@@ -1,7 +1,0 @@
-{
-  "firmware_commit": "289abb62b1030e40195e213dfd1479dacc0e746e",
-  "lvgl_commit": "74d0a816a440eea53e030c4f1af842a94f7ce3d3",
-  "lvgl_version": "8.3.11",
-  "generated_ui_sha256": "5fcc532a041789a644a505fc884dd3d270b38488d9b7a5b2d31b36b16bee3dae",
-  "test_hooks_sha256": "76235f8fdb2b81dcddf88936294b4a4b0bd725df9915ccea44bff2d33343b7bc"
-}

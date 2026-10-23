@@ -120,7 +120,7 @@ class Report:
 
 
 def run_spec(spec: dict, device, camera, out_dir: Path, log=print, judge=None, must_see=None, observe=None, initial_theme=None, framebuffer_judge=None) -> dict:
-    """camera may be None: host captures save framebuffers, serial-only captures skip.
+    """camera may be None: USB captures save framebuffers, serial-only captures skip.
     must_see: independent requirements (requirements.py) the first photo must meet,
     on top of the builder's own description."""
     judge = judge or judge_module.judge_test
@@ -168,7 +168,7 @@ def run_spec(spec: dict, device, camera, out_dir: Path, log=print, judge=None, m
         _save_json(out_dir / "initial" / "geometry.json", geometry)
         for key in geometry_keys(intent):
             value=geometry.get(key,0)
-            report.add(([{"kind":"layout", "test":"host geometry", "expected":f"no {key}",
+            report.add(([{"kind":"layout", "test":"widget geometry", "expected":f"no {key}",
                           "actual":json.dumps(geometry.get('clipped_label_details',value) if key=='clipped_labels' else value)}] if value else []), 1)
 
     if camera is None and hasattr(device,'geometry') and report.failures:

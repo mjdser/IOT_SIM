@@ -2,18 +2,10 @@
 .vscode/
 ESP32/SECRETS.h
 .env
+__pycache__/
 tools/ui_generator/last_rejected.cpp
 tools/ui_generator/runs/
-__pycache__/
-
-simulator/node_modules/
-simulator/vendor/
-simulator/build/
-simulator/build-cmake/
-simulator/captures/
-work/*.log
-
-# Local hardware screenshots, handoff archives and build evidence
+runtime/
 hardware/captures/
 hardware/HANDOFF.json
 IOT-hardware-handoff-*.zip

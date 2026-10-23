@@ -29,9 +29,9 @@ repair loop are reused.
 
 To compile only, without any board: `pio run -e lvgl_ui_capture`.
 To upload manually: `pio run -e lvgl_ui_capture -t upload --upload-port COMx`.
-The old camera workflow can still be run separately with `lvgl_ui_test` and
-`IOT_TARGET` unset. Never use the `mirror` firmware for this new workflow: it
-runs UI on the PC, which is the opposite direction.
+The original project camera workflow can still be run separately with
+`lvgl_ui_test` and `IOT_TARGET` unset. `Start-Simulator.cmd` is a compatibility
+alias for the current hardware viewer.
 
 ## What is and isn't tested
 
@@ -39,12 +39,12 @@ runs UI on the PC, which is the opposite direction.
 - The saved `generated_ui.cpp` and `ui_spec.json` are used directly; the board
   reports its compiled UI SHA-256, checked before the automated tests.
 - Capture files include `shot.png`, raw RGB565, TREE and device metadata.
-- UI image judging uses the same cached PNG judge as the simulator, when
+- UI image judging uses the project’s cached PNG image judge, when
   `SIM_VISION_JUDGE=1`. It checks layout, readability and the requested content.
 - The selected palette is tested directly; no camera dark-first conversion.
 - Registered-widget bounds and applicable task-layout checks are shared.
-  Host-only deep label/overlap geometry checks are NOT reported as passing on
-  the board. PNG visual review still checks these visually.
+  Deep label/overlap geometry introspection is not available over the board
+  protocol. PNG visual review checks these visually.
 - Test commands inject LVGL input. They do not verify physical touch calibration.
 - USB screenshots observe rendered pixels, not physical glass/backlight/wiring.
 - Wi-Fi, Bluetooth and sensors run on hardware **if the firmware implements
@@ -83,3 +83,15 @@ On disconnect it clears the image instead of displaying a simulated substitute.
 Source and offline checks are prepared without a board. Compilation and fake
 serial transport tests cannot prove physical operation. No board was flashed
 while preparing this handoff.
+
+## Viewer source (separate from the application project)
+
+- `launch.py`: launches the existing project chat server in hardware mode.
+- `index.html`: displays real device screenshots and embeds the project chat.
+- `device.py`: serial screenshot receiver, CRC/coverage validation and PNG output.
+- `target.py`: device detection, serial ownership, explicit install and tests.
+- `firmware/board_capture.cpp` and `.h`: on-device RGB565 strip capture extension.
+- `firmware/stamp.py`: embeds the compiled application UI fingerprint.
+
+Application source stays in `lvgl_ui/`; the generator/test/repair workflow stays
+in `tools/ui_generator/`. The viewer adds capture and coordination around them.

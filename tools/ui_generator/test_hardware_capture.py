@@ -2,9 +2,9 @@
 import io,json,struct,tempfile,unittest,zlib,contextlib,os
 from pathlib import Path
 from unittest import mock
-from hardware_device import read_frame,png_bytes,CaptureDevice,SIZE
+from hardware.device import read_frame,png_bytes,CaptureDevice,SIZE
 from device_runner import DeviceError,BoardCrash
-import hardware_target
+from hardware import target as hardware_target
 
 def wire(rows=320,corrupt=False,wrong_id=False):
     data=bytearray(b'@@FRAME_BEGIN 1 240 320\r\n')
@@ -105,13 +105,12 @@ class PipelineTests(unittest.TestCase):
             p=mock.patch.object(obj,name,value);p.start();self.addCleanup(p.stop)
         for name,value in {'TARGET':self.source,'THEME_FILE':self.theme,'SPEC_FILE':self.specfile,
                            'RUNS_DIR':self.root/'runs','REJECTED_FILE':self.root/'rejected.cpp'}.items():patch(pipeline,name,value)
-        patch(pipeline.host_sim,'source_lock',lambda:contextlib.nullcontext())
+        patch(pipeline.project_state,'source_lock',lambda:contextlib.nullcontext())
         patch(hardware_target.runtime,'generation',lambda:contextlib.nullcontext('COM9'))
         patch(pipeline,'find_pio',lambda:'pio')
         patch(pipeline,'compile_ui',lambda p,e:(self.calls.append(('compile',e,'UI_LIGHT_THEME 1' in self.theme.read_text())) or (True,'')))
         patch(pipeline,'flash_ui',lambda p,port,e,log:(self.calls.append(('upload',e,port)) or (True,'')))
         patch(pipeline.camera,'settings_from_env',mock.Mock(side_effect=AssertionError('Camera must not open')))
-        patch(pipeline.host_sim,'compile_host',mock.Mock(side_effect=AssertionError('Host must not run')))
         patch(pipeline,'switch_to_light',mock.Mock(side_effect=AssertionError('Must not reflash palette after tests')))
         self.test_result={'passed':True,'checks_passed':2,'checks_total':2,'photos':1,'visual':True,'failures':[]}
         self.runner=mock.Mock(side_effect=lambda *args:self.test_result)
@@ -134,6 +133,13 @@ class PipelineTests(unittest.TestCase):
         self.runner.side_effect=[dict(self.test_result,passed=False,failures=[{'kind':'state','test':'toggle','expected':'on','actual':'off'}]),self.test_result]
         result=self.run_pipeline()
         self.assertTrue(result.ok);self.assertEqual(self.runner.call_count,2)
+    def test_compile_only_never_uploads_or_tests(self):
+        with mock.patch.dict(os.environ, {'IOT_TARGET':''}):
+            result=self.pipeline.run('light switch',get_code=lambda *a:self.reply,log=lambda _:None)
+        self.assertTrue(result.ok)
+        self.assertEqual(self.calls,[('compile','lvgl_ui',True)])
+        self.runner.assert_not_called()
+
     def test_no_upload_permission_path(self):
         with self.assertRaises(RuntimeError):self.pipeline.run('request',flash=False,test=True)
 

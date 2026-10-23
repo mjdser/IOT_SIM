@@ -1,9 +1,0 @@
-{
-  "name": "iot-bench-simulator",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Desktop bench twin driven by the actual LVGL firmware framebuffer",
-  "main": "desktop.cjs",
-  "scripts": {"start": "electron .", "build:host": "python build.py", "test:host": "python test_host.py"},
-  "dependencies": {"electron": "33.4.11", "three": "0.170.0"}
-}

@@ -1,12 +1,12 @@
 # Hardware facts / حقائق العتاد
 
-Source: the user's supplied hardware brief and all four attached photos, read before simulator code was written. Firmware source of truth: https://github.com/aseelFraira/IOT_-AGENTIC_UI at `289abb62b1030e40195e213dfd1479dacc0e746e`, especially `include/User_Setup.h`, `lvgl_ui/main.cpp`, `include/touch_calibration.h`, `tools/ui_generator/camera.py`, and `platformio.ini`.
+Source: the user's supplied hardware brief and all four attached photos, read before the bench model was written. Firmware source of truth: https://github.com/aseelFraira/IOT_-AGENTIC_UI at `289abb62b1030e40195e213dfd1479dacc0e746e`, especially `include/User_Setup.h`, `lvgl_ui/main.cpp`, `include/touch_calibration.h`, `tools/ui_generator/camera.py`, and `platformio.ini`.
 
 ## Boards and stand
 
 ESP32 DevKit V1, CP2102, PlatformIO board `esp32doit-devkit-v1`. Red 2.8-inch ILI9341 TFT module, SparkFun/PJRC style, XPT2046 touch on the shared SPI bus. Module product title says 320×240; firmware orientation is portrait. Both boards have male headers. Use female–female Dupont wires; other types in the catalogue image are not used on this bench.
 
-One USB webcam connected to the PC through OpenCV, not wired to the ESP32. Grey printed clamp on a horizontal aluminium tube; a cross clamp joins a vertical tube anchored in a cardboard box. Black camera cable goes down toward the PC. White table. Photos contain other background equipment, which is not part of the simulator rig.
+One USB webcam connected to the PC through OpenCV, not wired to the ESP32. Grey printed clamp on a horizontal aluminium tube; a cross clamp joins a vertical tube anchored in a cardboard box. Black camera cable goes down toward the PC. White table. Photos contain other background equipment, which is not part of the configured rig.
 
 ## Electrical nets — no inferred GPIOs
 
@@ -27,9 +27,9 @@ TFT_eSPI requirement ^2.5.43; LVGL ~8.3.11; Arduino-ESP32. Display SPI 27 MHz, t
 
 ## Pixels
 
-`tft.setRotation(0)`, `SCREEN_W=240`, `SCREEN_H=320`. RGB565, LVGL depth 16, no 16-bit byte swap. Active glass about 43.2×57.6 mm (0.18 mm pitch) within a larger PCB. Firmware draw buffer is `240*10`; the host retains that draw buffer and copies flushes into a full framebuffer.
+`tft.setRotation(0)`, `SCREEN_W=240`, `SCREEN_H=320`. RGB565, LVGL depth 16, no 16-bit byte swap. Active glass about 43.2×57.6 mm (0.18 mm pitch) within a larger PCB. Firmware draw buffer is `240*10`; the capture extension forwards those strips over USB and the PC assembles the image.
 
-The real test pipeline always uses dark colours with background `#101418`; `pipeline.py switch_to_light` and `UI_LIGHT_THEME` choose light colours only after checks when requested. The current alphabet demo hard-codes its dark palette. Host light mapping is documented in `simulator/README.md` and changes no UI layout.
+The original camera workflow tests dark colours with background `#101418` before switching to requested light colours. The USB screenshot workflow tests the requested palette directly. `UI_LIGHT_THEME` selects compile-time colours.
 
 ## Camera
 
@@ -37,7 +37,7 @@ Resolution 1600×1200, aspect 4:3. Exposure −6 manual (DirectShow), white bala
 
 ## Protocol and limits
 
-Board serial 115200, replies start `@@`: PING, TREE, TAP_ID, TAP, DRAG, WAIT_IDLE, RESET_UI. Injected touch does not test XPT2046; physical touch has separate Unity tests. The host uses these exact hooks over stdin/stdout. No board SHOT, flash or Gemini calls are part of the simulator.
+Board serial 115200, replies start `@@`: PING, TREE, TAP_ID, TAP, DRAG, WAIT_IDLE, RESET_UI. Injected touch does not test XPT2046; physical touch has separate Unity tests. The capture environment uses the same test commands at 921600 baud and adds INFO, FRAME and RANGES. FRAME forwards rendered RGB565 strips; the PC saves PNG screenshots. See `hardware/README.md`.
 
 ## References
 

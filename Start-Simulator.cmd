@@ -1,5 +1,4 @@
 @echo off
-cd /d "%~dp0simulator"
-set IOT_MIRROR=0
-python launch.py
+cd /d "%~dp0"
+python hardware\launch.py
 if errorlevel 1 pause

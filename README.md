@@ -1,100 +1,64 @@
-# Current workflow: real ESP32 with USB screenshots
+# Agentic UI — ESP32 project and hardware viewer
 
-`Start-IOT.cmd` and `Start-Hardware.cmd` now open the real-device workflow.
-The ESP32 runs the generated UI; the PC receives 240×320 RGB565 screenshots
-and sends the existing test commands. No PC UI simulation or camera runs in
-this mode. First firmware installation requires explicit confirmation.
+Describe an interface in the existing chat. The project generates and validates
+`lvgl_ui/generated_ui.cpp` and `ui_spec.json`, compiles/uploads them to the ESP32,
+executes the test steps there, and reviews screenshots received over USB. Failed
+UI checks return to the generator for repair.
 
-See [hardware setup and limitations](hardware/README.md) or
-[Arabic quick start](hardware/README_AR.md).
+## Run
 
-ESP32 compilation and 65 offline checks passed. Physical USB capture, screen
-output and touch still need verification on the actual board. Screenshots are
-periodic, not real-time video. No physical board was flashed during preparation.
+1. Install Python 3.12, then run `python -m pip install platformio pyserial opencv-python`.
+2. Copy `.env.example` to `.env` and add your own API key.
+3. Run `Start-IOT.cmd` or `Start-Hardware.cmd`.
+4. Connect the configured ESP32. On first use, choose its port and explicitly
+   install capture firmware from the viewer, then use the chat.
 
-`Start-Simulator.cmd` retains the earlier PC simulator with mirroring disabled.
-The older documentation below describes that earlier workflow.
+`Start-Simulator.cmd` remains a compatibility launcher for this same hardware
+viewer. There is one viewer and one execution path behind these launchers.
+The page is `http://127.0.0.1:8765/hardware`; the existing chat remains at `/`.
+No npm, Electron or native PC LVGL build is needed.
 
----
+## Code layout
 
-# IOT — محاكي الطاولة
+- **`hardware/` — current viewer and USB capture integration.** Browser page,
+  launcher, serial client, connection/upload coordination, and `firmware/`
+  capture extension. See [hardware/README.md](hardware/README.md).
+- **`lvgl_ui/` — application firmware.** Generated UI, the actual ESP32 main loop,
+  shared serial test hooks and test specification.
+- **`tools/ui_generator/` — project workflow.** Chat, AI clients, validator,
+  spec parser, compile/upload/repair loop, test runner and image judge.
+- **`include/`, `src/`, `lib/`, `test/`, `platformio.ini` — board configuration,
+  supporting firmware and physical hardware tests. Build paths stay unchanged.
+- **`reference/` and the other original project/documentation folders** retain
+  the hardware references and original project material.
+- **`runtime/`, `hardware/captures/`, `tools/ui_generator/runs/`** are ignored local
+  state, screenshot caches and run evidence.
 
-هذا المجلد يحتوي على نسخة البرنامج الثابت الأصلية ومحاكي سطح مكتب للطاولة الموجودة في الصور.
+The old PC simulator, 3D bench, PC-to-board mirror firmware and their generated
+test/build artifacts have been removed from the current tree.
 
-## التشغيل
+## Build and test
 
-افتح `Start-IOT.cmd` بالنقر مرتين. سيشغّل نافذة المحاكي وسيرفر المحادثة الأصلي على http://127.0.0.1:8765 مع `FLASH=0`. احتفظ بنافذة الطرفية مفتوحة لمشاهدة نتائج البناء والاختبارات. تحتاج Python 3 على الجهاز؛ نسخة المحاكي المبنية ومكتبات النافذة موجودة داخل المجلد.
+Compile only: `pio run -e lvgl_ui_capture`.
 
-## اطلب واجهة جديدة من المحادثة
+Explicit upload: `pio run -e lvgl_ui_capture -t upload --upload-port COM4`.
 
-ضع مفتاحك في `.env` داخل IOT، دون `#` في بداية السطر. لا ترسل المفتاح في المحادثة ولا تشاركه مع ملفات المشروع.
+Offline software tests: `python -m unittest discover -s tools/ui_generator -p "test_*.py"`.
 
-- Gemini: استخدم `GENERATOR_PROVIDER=gemini` و`GEMINI_API_KEY`.
-- OpenAI: استخدم `GENERATOR_PROVIDER=openai` و`OPENAI_API_KEY` و`OPENAI_MODEL=gpt-4.1`.
-- تم ضبط المزوّد في هذه الجلسة على OpenAI لأن مفتاحك من OpenAI. المزوّدان يستخدمان نفس أدوات المشروع وقواعد الواجهة.
-- أبقِ `FLASH=0` و`TESTS=1`. أعد تشغيل السيرفر عند تغيير مفتاح موجود أو المزوّد أو الموديل.
+The original camera-based workflow is retained as part of the project:
+`python tools/ui_generator/generate.py "your request" --test`.
+USB screenshots use `--hardware` instead. With neither flag the CLI compiles
+ESP32 code only. See [the generator guide](tools/ui_generator/README.md).
 
-اضغط `Open existing UI chat` ثم اكتب `a light switch with a brightness slider`. المولّد يكتب `lvgl_ui/generated_ui.cpp` و`lvgl_ui/ui_spec.json`، ثم تتحقق الأدوات من الكود وتبنيه وتشغّل الاختبارات على LVGL في الكمبيوتر. عندما تنجح الاختبارات، تظهر الواجهة الجديدة تلقائياً على الزجاج. انقر على المفتاح واسحب شريط السطوع؛ لوحة TREE تعرض الحالة الفعلية.
+## Verification limits
 
-الافتراضي الآن أبيض/فاتح، والاختبارات تتم على الثيم المطلوب فقط. يمكن اختيار اختبار الثيمين عبر SIM_TEST_PALETTES=both عند الحاجة. زر الثيم يعمل فقط عندما توجد نسختان مختبرتان. لا يتم تشغيل الكاميرا. مراجع الصور المستقل يراجع PNG مباشرة من ذاكرة الشاشة باستخدام مفتاح OpenAI الحالي، ويرسل مشاكل الوضوح والتباين إلى حلقة إصلاح الكود. إذا فشلت المحاولات، تعود ملفات الواجهة السابقة ويبقى آخر عرض ناجح على الزجاج.
+The ESP32 runs the UI and uses its own memory and peripherals. The PC manages
+generation, build/upload, test commands and screenshot review. A screenshot
+copies rendered RGB565 pixels and does not verify the display's wiring or
+backlight. Injected test actions do not test physical touch calibration.
+Capture adds overhead and updates periodically rather than providing live video.
 
-- اسحب بالفأرة للدوران حول الطاولة، وبالزر الأيمن للتحريك، وبالعجلة للاقتراب والابتعاد.
-- انقر داخل المشهد ثم استخدم WASD للمشي حول الطاولة.
-- انقر على حرف فوق زجاج الشاشة؛ يتغيّر نص NOTE من خلال كود LVGL الحقيقي.
-- `Look through the camera` ينقل النظر إلى عدسة الكاميرا بنسبة 4:3. `Step back` يرجع إلى موضعك السابق.
-- التركيز والوهج يظهران فقط في وضع الكاميرا؛ هما توضيح بصري وليسا قياساً. البداية حادّة والوهج مغلق.
-- الأبيض/الفاتح هو الافتراضي. زر `Show the light theme` يعمل فقط إذا تم بناء واختبار الثيمين؛ عند اختبار ثيم واحد يبقى الزر معطلاً.
-- `Save capture` يحفظ صورة المخزن الحقيقية مع شجرة العناصر داخل `simulator/captures/`.
-- `Inspect glass` للاقتراب من الشاشة، و`Whole bench` لرؤية الطاولة كاملة.
+Compilation and offline checks have passed; physical operation still requires
+verification with the team's board. API keys are never included in the repo.
 
-## ماذا يوجد هنا؟
-
-- `HARDWARE.md`: حقائق التوصيل، الشاشة، الكاميرا ومصادرها.
-- `ASTRA_PROMPT.md`: أمر عربي لمتابعة العمل مع أسترا.
-- `reference/photos/`: الصور الأربع التي أرسلتها، ومعها features.pdf وAgentic_UI_Roadmap.pdf المنسوخان من Downloads/Uni/IOT.
-- `simulator/`: التطبيق، المضيف الأصلي LVGL، الاختبارات، وREADME تفصيلي بالإنجليزية.
-- `simulator/test-results/`: نتائج الاختبارات ولقطات فعلية من المحاكي.
-- `lvgl_ui/`: ملف generated_ui.cpp الحالي الذي كتبه المولّد ويستخدمه الكمبيوتر والـ ESP32 مباشرةً. ملف test_hooks.cpp الأصلي لم يتغير.
-- `README_FIRMWARE.md`: تعليمات المستودع الأصلية محفوظة كما كانت.
-
-## ما الذي يطابق العتاد؟
-
-نفس كود الواجهة، ونفس مخزن RGB565 بحجم 240×320 وrotation 0، ونفس أوامر الاختبار التي تبدأ ردودها بـ @@. صورة الزجاج تأتي من LVGL نفسه، وليست واجهة مشابهة مرسومة في المتصفح.
-
-عندما تكون الكاميرا الحقيقية واضحة والتعريض ثابتاً، يُفترض أن تكون صورتها قريبة من هذا الزجاج. لم يُجرَ قياس مقارنة بصري على لوحة حقيقية هنا. التركيز والوهج في المشهد مجرد توضيح. مساحة الزجاج 43.2×57.6 مم؛ باقي أبعاد المجسم وزاوية تصوير الكاميرا تقديرات من الصور وليست CAD مقاساً. ترتيب مواقع الهيدرات في المجسم تخطيطي؛ جدول الأرجل في HARDWARE.md هو مرجع التوصيل.
-
-نسخة لوحة المفاتيح الأصلية محفوظة في `simulator/fixtures/`. الواجهة الحالية هي مفتاح إضاءة وشريط سطوع ناتجان عن طلب فعلي للمزوّد، واجتازت اختبارات الحالة والهندسة. قواعد `system_prompt.txt` لم تتغير.
-
-## كيف يفلش الشركاء نفس الكود؟
-
-عندما تظهر عبارة `Ready for real board` يكون بصمة الملف الحالي مطابقة للنسخة التي اجتازت اختبارات المحاكي. شارك ملفات المشروع مع الشركاء دون `.env`، ولا تغيّر أو تعِد توليد `lvgl_ui/generated_ui.cpp`. يشغّل الشريك من داخل IOT:
-
-```powershell
-pio run -e lvgl_ui_test -t upload
-```
-
-يمكن إضافة `--upload-port COM4` مع منفذ اللوحة الصحيح. هذا الأمر يبني نفس ملف الواجهة للـ ESP32 ثم يرفعه. ملف EXE الخاص بالكمبيوتر ليس ملفاً صالحاً للتفليش؛ المتطابق هو مصدر C++ وإعداداته، أما الملف التنفيذي فيختلف حسب المعالج. عبارة الجاهزية تعني اجتياز اختبارات الكمبيوتر، ولا تدّعي إجراء اختبار عتاد أو بناء ESP32 هنا.
-
-## حفظ التقدم بعد الانقطاع
-
-`work/SESSION_CHECKPOINT.md` يسجّل حالة العمل وكيفية المتابعة. كل محاولة محفوظة في `tools/ui_generator/runs/` مع الكود، JSON، سجل البناء، الصور والشجرة. `simulator/build/active.json` يحدد آخر بناء ناجح وبصمات ملفاته. كاش المترجم محفوظ أيضاً. يمكن إعادة تشغيل استجابة محفوظة دون استدعاء API باستخدام `generate.py --sim --code-file ... --spec-file ...` كما في دليل المحاكي. سجل المحادثة نفسه يبقى في ذاكرة السيرفر فقط؛ الملفات والبناء المقبول تبقى بعد إعادة تشغيله.
-
-## اختبارات وإعادة بناء
-
-من داخل simulator:
-
-```powershell
-python test_host.py
-python test_accepted_ui.py
-python run_spec.py demo-spec.json --out captures/demo
-python build.py
-npm start
-```
-
-لا تحتاج لوحة ESP32 لتشغيل هذه الأوامر. الاختبارات تستخدم الكود المحفوظ دون استدعاء AI؛ المحادثة وحدها تستدعي مزوّد التوليد المحدد. لا يتم تفليش لوحة أو تشغيل الكاميرا أو مراجع الصور. للمزيد راجع `simulator/README.md`.
-
-
-مراجع الصور مفعّل عبر `SIM_VISION_JUDGE=1`. مراجعة الثيم المطلوب تتم في طلب واحد؛ لا يُختبر الغامق تلقائياً، بلا كاميرا وبلا كود الواجهة داخل سياق المراجع. نتائج الصور تدخل في نفس دورة إعادة التوليد، حتى ست محاولات؛ زر Continue repairing يكمل من النسخة الفاشلة. الصور والمعايير وقرارات المراجع محفوظة، والمراجعات المطابقة تُستخدم من الكاش لتوفير الكريدتس. إيقافه عبر `SIM_VISION_JUDGE=0` يعني اختبارات وظيفية فقط.
-
-
-فحص الترتيب مرتبط بطلبك: لوحة X/O الصغيرة تُفحص كلوحة كاملة في الوسط، بخلايا متساوية ومسافات منتظمة ودون أطراف مقصوصة داخل الحاوية. لا يتم إجبار كل النصوص والقوائم على التوسيط، والتمرير لا يُستخدم لإخفاء خطأ ترتيب في واجهة صغيرة يجب أن تتسع للشاشة. عند وجود خطأ واضح في الترتيب الأولي، تبدأ إعادة الإصلاح فوراً قبل اختبار كل التفاعلات أو مراجعة الصور المدفوعة.
+Arabic quick start: [hardware/README_AR.md](hardware/README_AR.md).

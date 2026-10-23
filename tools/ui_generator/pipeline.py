@@ -1,22 +1,7 @@
-"""Existing generator -> validate -> compile -> PC tests/live bench by default.
+"""Generate, validate and compile ESP32 UI code, then test/repair on hardware.
 
-With flash=False, the same source and test hooks run on PC LVGL. A passing build
-is published to the bench; no PlatformIO, camera or requirements reviewer is
-called. Optional independent vision review uses the host framebuffer PNGs. flash=True explicitly selects the legacy board pipeline below.
-
-Gemini returns generated_ui.cpp plus ui_spec.json (the tests for that UI). With
-test=True the board gets the lvgl_ui_test build, spec_runner.py carries out the
-spec over serial, the camera photographs each capture step and the vision judge
-checks the photos. Any failed check goes back to Gemini, up to MAX_ATTEMPTS.
-
-generated_ui.cpp is only kept when it passed everything that ran. If every
-attempt fails, the previous generated_ui.cpp is restored, and put back on the
-board if a failed attempt had been flashed.
-
-A broken test setup (no board reply, no camera picture) is not the UI's fault:
-the UI is kept and the result says the tests did not run.
-
-Every run is recorded under tools/ui_generator/runs/<timestamp>/.
+hardware_capture uses USB screenshots; the optional original camera path uses
+photos. With flash=False, compile only. All execution targets are real ESP32.
 """
 
 import contextlib
@@ -37,7 +22,7 @@ import requirements
 import spec as spec_module
 import spec_runner
 import validator
-import host_sim
+import project_state
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -71,7 +56,6 @@ class Result:
     failures: list = None
     repair_history: list = None
     visual: bool = False
-    palette_mode: str = 'selected'
 
 
 def default_generator():
@@ -238,7 +222,7 @@ def run_tests(the_spec: dict, port: str, out_dir: Path, log=print, judge=None,
     """Opens the board and (if CAMERA_INDEX is set and use_camera) the camera, then
     runs the spec. Raises device_runner.DeviceError / camera.CameraError on setup problems."""
     if os.environ.get('IOT_TARGET') == 'hardware_capture':
-        import hardware_target
+        from hardware import target as hardware_target
         return hardware_target.run_tests(the_spec, port, out_dir, log)
     open_device = open_device or (lambda: device_runner.Device(port, log=log))
     settings = camera.settings_from_env() if use_camera else None
@@ -256,43 +240,33 @@ def run_tests(the_spec: dict, port: str, out_dir: Path, log=print, judge=None,
 
 
 def run(*args, **kwargs):
-    with host_sim.source_lock():
+    with project_state.source_lock():
         if os.environ.get('IOT_TARGET') == 'hardware_capture':
-            import hardware_target
+            from hardware import target as hardware_target
             if not kwargs.get('flash') or not kwargs.get('test'):
                 raise RuntimeError('Hardware capture requires FLASH=1 and TESTS=1.')
             with hardware_target.runtime.generation() as port:
                 kwargs['port']=port
-                kwargs['simulate']=False
                 return _run(*args, **kwargs)
         return _run(*args, **kwargs)
 
 
 def _run(user_request: str, flash: bool = False, port: str = None, log=print, get_code=None,
         history=None, test: bool = False, judge=None, open_device=None, open_camera=None,
-        get_requirements=None, simulate=None, presentation_theme=None, palette_mode=None) -> Result:
+        get_requirements=None, presentation_theme=None) -> Result:
     """get_code(system_prompt, messages) -> str replaces the AI call, judge /
     open_device / open_camera replace the hardware (used for testing).
     get_requirements(requests) -> dict replaces requirements.derive; by default it
     only runs when the AI writes the UI (not for a saved reply).
-    Without flash, host tests always run. With flash, test selects board tests."""
+    Without flash, compile only. With flash, test selects board tests."""
     system_prompt = PROMPT_FILE.read_text(encoding="utf-8")
     source = "the saved reply" if get_code else (os.environ.get("GENERATOR_PROVIDER") or "gemini")
     get_code = get_code or default_generator()
     hardware_capture = os.environ.get('IOT_TARGET') == 'hardware_capture'
-    simulate = not flash if simulate is None else simulate
     if hardware_capture:
-        system_prompt += '\nExecution context: compile and run on the actual ESP32. Capture RGB565 pixels from its LVGL flush over USB, not a camera. Use the requested palette directly (white/light by default). Earlier camera-specific dark-first instructions do not apply. All existing widget and hardware rules still apply.'
-    palette_mode=palette_mode or os.environ.get('SIM_TEST_PALETTES','selected')
-    if palette_mode not in ('selected','both'):raise RuntimeError('SIM_TEST_PALETTES must be selected or both')
-    if simulate and palette_mode=='selected':
-        system_prompt+='\nHost execution context: no camera is used. Test only the requested palette (light/white by default when requested); write capture colour criteria for that palette. The earlier dark-camera testing rule applies to the board camera workflow, not this host run. Keep all widget and hardware rules unchanged.'
-    if simulate:
-        system_prompt+='\nLayout checks follow the requested task, not a centre-everything rule. For compact game boards, centre the whole board and related controls, not every label. LVGL containers inherit theme padding: child positions include that padding. Use actual usable content width, or set explicit padding before positioning. Do not use scrolling to hide a misplaced compact layout; legitimate requested lists may scroll.'
-    if simulate and flash:
-        raise RuntimeError('Host simulation cannot flash a board. Choose one target.')
-    pio = None if simulate else find_pio()
-    test = True if simulate else test and flash
+        system_prompt += '\nExecution context: compile and run on the actual ESP32. Capture RGB565 pixels from its LVGL flush over USB. Use the requested palette directly (white/light by default). Earlier camera-specific dark-first instructions do not apply. All existing widget and hardware rules still apply.'
+    pio = find_pio()
+    test = test and flash
     env = 'lvgl_ui_capture' if hardware_capture else TEST_ENV if test else PIO_ENV
     run_dir = new_run_dir(user_request)
     log(f"Run folder: {run_dir}")
@@ -303,7 +277,7 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
     messages, _ = build_messages(user_request, history)
 
     # Independent acceptance criteria, before the builder sees anything.
-    if get_requirements is None and source != "the saved reply" and not simulate:
+    if get_requirements is None and source != "the saved reply":
         get_requirements = requirements.derive
     req = None
     if get_requirements:
@@ -357,75 +331,17 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
                 wanted = the_spec.get("theme", "dark")
                 # Tests and photos always run in dark colours; without tests the
                 # wanted theme goes straight on.
-                initial_theme=wanted if hardware_capture or simulate and palette_mode=='selected' else 'dark'
-                write_theme(wanted == "light" and (hardware_capture or not test or simulate and palette_mode=='selected'))
+                initial_theme=wanted if hardware_capture else 'dark'
+                write_theme(wanted == "light" and (hardware_capture or not test))
                 log(f"Rule check passed ({len(the_spec['tests'])} tests, {wanted} theme wanted). Compiling...")
-                if simulate:
-                    compiled, errors, host_exe = host_sim.compile_host(attempt_dir / ('native-'+initial_theme))
-                else:
-                    compiled, errors = compile_ui(pio, env)
+                compiled, errors = compile_ui(pio, env)
                 if not compiled:
                     log("Compile failed:\n" + errors)
                     feedback = "Your code failed to compile:\n" + errors
                 else:
                     log("Compiled successfully.")
-                    themes = {"theme": initial_theme if simulate or hardware_capture else "light" if wanted == "light" and not test else "dark",
+                    themes = {"theme": initial_theme if hardware_capture else "light" if wanted == "light" and not test else "dark",
                               "theme_wanted": wanted, "not_possible": not_possible}
-                    if simulate:
-                        log('Running the same test protocol on PC LVGL (no board or camera)...')
-                        try:
-                            report = host_sim.run_tests(the_spec, host_exe, attempt_dir / 'tests', log)
-                        except device_runner.DeviceError as exc:
-                            report = {'passed':False,'checks_passed':0,'checks_total':1,'photos':0,
-                                      'failures':[{'kind':'host','test':'startup','expected':'responsive PC UI', 'actual':str(exc)}]}
-                        last_report = report
-                        log(f"Host tests: {report['checks_passed']}/{report['checks_total']} checks passed.")
-                        if report['passed']:
-                            builds = {initial_theme:host_exe}
-                            if wanted == 'light' and palette_mode=='both':
-                                log('Dark checks passed. Building and checking the requested light palette...')
-                                write_theme(True)
-                                light_ok, light_error, light_exe = host_sim.compile_host(attempt_dir / 'native-light')
-                                if light_ok:
-                                    try:
-                                        light_report = host_sim.run_tests(the_spec, light_exe, attempt_dir / 'tests_light', log)
-                                        light_ok = light_report['passed'] and host_sim.equivalent_palettes(attempt_dir/'tests',attempt_dir/'tests_light')
-                                        light_error = (spec_runner.describe_failures(light_report['failures']) if not light_report['passed'] else
-                                                       '\n'.join(host_sim.palette_differences(attempt_dir/'tests',attempt_dir/'tests_light')) or 'Light state/layout differs.')
-                                    except device_runner.DeviceError as exc:
-                                        light_ok, light_error = False, str(exc)
-                                if light_ok:
-                                    builds['light'] = light_exe
-                                    themes['theme'] = 'light'
-                                else:
-                                    log('Light palette failed. Asking for a repair: ' + light_error)
-                                    write_theme(False)
-                                    last_report={'passed':False,'checks_passed':0,'checks_total':1,
-                                                 'failures':[{'kind':'palette','test':'requested light theme','expected':'same state/layout and passing checks','actual':light_error}]}
-                                    feedback = ('Dark tests passed, but the requested light palette failed: ' + light_error +
-                                                '\nFix both palettes. UI_LIGHT_THEME may change colours only; never widget text, checked state, layout or behaviour.')
-                                    messages.append(('model',accepted_reply))
-                                    messages.append(('user',feedback+'\nReturn both complete files again, in the same format.'))
-                                    (attempt_dir/'repair-feedback.txt').write_text(feedback,encoding='utf-8')
-                                    continue
-                            manifest = host_sim.publish(the_spec, builds, themes['theme'], run_dir)
-                            keep_new = True
-                            log('Ready for real board: pio run -e lvgl_ui_test -t upload')
-                            log('Exact generated_ui.cpp SHA-256: ' + manifest['source_sha256'])
-                            return Result(ok=True,reply=accepted_reply,tests='passed',run_dir=run_dir,
-                                          checks_passed=report['checks_passed'],checks_total=report['checks_total'],
-                                          photos=report.get('photos',0),visual=report.get('visual',False),
-                                          palette_mode=palette_mode,
-                                          target='host',source_sha256=manifest['source_sha256'],**themes)
-                        failures = spec_runner.describe_failures(report['failures'])
-                        log('Failed host checks:\n' + failures)
-                        feedback = ('The UI compiled and ran on PC LVGL using the same firmware UI and test hooks. '
-                                    'These checks failed:\n' + failures + '\nFix generated_ui.cpp. Only change a test if it contradicts what the user asked for; never weaken a test just to make it pass. Preserve all requested functionality.')
-                        (attempt_dir/'repair-feedback.txt').write_text(feedback,encoding='utf-8')
-                        log(f'Repair needed: {len(report["failures"])} failed checks. Continuing with attempt {attempt+1}/{MAX_ATTEMPTS}.' if attempt<MAX_ATTEMPTS else 'Repair budget exhausted; preserving the previous UI.')
-                        messages.append(('model', accepted_reply))
-                        messages.append(('user', feedback + '\nReturn both complete files again, in the same format.'))
-                        continue
                     if not flash:
                         keep_new = True
                         return Result(ok=True, reply=accepted_reply, run_dir=run_dir, **themes)
@@ -478,7 +394,7 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
                             themes["theme"] = "light" if switched else "dark"
                         return Result(ok=True, reply=accepted_reply, flashed=True, tests="passed",
                                       target='hardware_capture' if hardware_capture else 'board',
-                                      source_sha256=host_sim.digest(TARGET), visual=report.get('visual',False),
+                                      source_sha256=project_state.digest(TARGET), visual=report.get('visual',False),
                                       checks_passed=report["checks_passed"],
                                       checks_total=report["checks_total"],
                                       photos=report["photos"], run_dir=run_dir, **themes)
@@ -496,7 +412,7 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
             messages.append(("user", feedback + "\nReturn both complete files again, in the same format."))
 
         log(f"Giving up after {MAX_ATTEMPTS} attempts; previous UI restored.")
-        result = Result(ok=False, run_dir=run_dir, not_possible=not_possible, target='host' if simulate else 'board', problem=feedback,
+        result = Result(ok=False, run_dir=run_dir, not_possible=not_possible, target='hardware_capture' if hardware_capture else 'board', problem=feedback,
                         repair_history=messages[:1]+messages[-2:])
         if last_report:
             result.tests = "failed"
@@ -522,4 +438,6 @@ def _run(user_request: str, flash: bool = False, port: str = None, log=print, ge
                 restored = compiled and flash_ui(pio, port, env, log)[0]
                 log("Previous UI restored on the board." if restored
                     else "Could not restore the previous UI on the board.")
+        if keep_new:
+            project_state.record_source(TARGET)
         (run_dir / "outcome.json").write_text(json.dumps({"accepted": keep_new}), encoding="utf-8")

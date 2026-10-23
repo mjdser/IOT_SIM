@@ -1,11 +1,11 @@
-"""Image-only host reviewer, separate from generator history/code, with PNG caching."""
+"""Image-only device screenshot reviewer, separate from generator history/code, with PNG caching."""
 import base64, hashlib, json, os, re
 from pathlib import Path
 import gemini_client, openai_client
 
 ROOT=Path(__file__).resolve().parents[2]
 PROMPT=Path(__file__).with_name('framebuffer_judge_prompt.txt')
-CACHE=ROOT/'simulator/build/vision-cache'
+CACHE=ROOT/'runtime/vision-cache'
 RUBRIC=['No widget or text is cut off at the edges of the display',
         'No text overlaps other text or an unrelated control',
         'All text is readable with clear contrast against its actual background',

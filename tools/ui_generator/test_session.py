@@ -18,7 +18,7 @@ class SessionTests(unittest.TestCase):
             specfile=root/'ui_spec.json';specfile.write_text('{"intent":"game"}')
             sha=hashlib.sha256(source.read_bytes()).hexdigest();manifest=root/'active.json';manifest.write_text(json.dumps({'source_sha256':sha}))
             session={'history':[('user','game'),('model','old misplaced UI')]}
-            with mock.patch.object(server,'cache_enabled',True),mock.patch.object(server,'FLASH',False),mock.patch.object(pipeline,'TARGET',source),mock.patch.object(pipeline,'SPEC_FILE',specfile),mock.patch.object(pipeline.host_sim,'ACTIVE',manifest):
+            with mock.patch.object(server,'cache_enabled',True),mock.patch.object(server,'FLASH',False),mock.patch.object(pipeline,'TARGET',source),mock.patch.object(pipeline,'SPEC_FILE',specfile),mock.patch.object(pipeline.project_state,'ACTIVE',manifest):
                 server.sync_accepted_source(session)
             self.assertIn('accepted repaired UI',session['history'][-1][1]);self.assertEqual(session['source_sha256'],sha)
     def test_continue_repairs_uses_failed_code_and_diagnostics(self):

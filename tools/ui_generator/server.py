@@ -29,7 +29,7 @@ ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 MAX_REQUEST_CHARS = 2000
 MAX_HISTORY_TURNS = 4  # earlier (request, code) pairs sent back to Gemini
 MAX_CHAT_MESSAGES = 200
-FLASH = os.environ.get("FLASH", "0") != "0"  # default: compile + test PC LVGL, never flash
+FLASH = os.environ.get("FLASH", "0") != "0"  # default: compile ESP32 firmware only, never flash
 TESTS = os.environ.get("TESTS", "1") != "0"  # set TESTS=0 to flash without running the tests
 UPLOAD_PORT = os.environ.get("UPLOAD_PORT")
 
@@ -39,7 +39,7 @@ busy = threading.Lock()
 sessions = {}  # sid -> {"history": [(role, text)], "chat": [{"who", "text"}]}
 sessions_lock = threading.Lock()
 SID_RE = re.compile(r"^[0-9a-f]{16}$")
-CHAT_CACHE = pipeline.ROOT / 'simulator/build/chat-sessions.json'
+CHAT_CACHE = pipeline.ROOT / 'runtime/chat-sessions.json'
 cache_enabled = False  # Enabled for the running server, not imported unit tests.
 
 def save_sessions():
@@ -80,7 +80,7 @@ PAGE = """<!doctype html>
   button { font: inherit; padding: .4rem 1rem; }
 </style>
 <header><h1>Screen designer</h1><button id="reset" type="button">Start over</button></header>
-<p id="target" style="font-size:12px;color:#52606b">PC simulator · board flashing off</p>
+<p id="target" style="font-size:12px;color:#52606b">ESP32 UI project · board flashing off</p>
 <div id="chat"></div>
 <button id="retry" type="button" hidden>Continue repairing the failed version</button>
 <form id="form">
@@ -194,19 +194,12 @@ def result_message(result):
 
 def _result_message(result):
     more = " Tell me if you want anything changed."
-    if result.target == 'hardware_capture':
+    if result.target == 'hardware_capture' and (result.ok or result.tests == 'not_run'):
         if result.ok and result.tests == 'passed':
             return (f"Done! The real ESP32 passed {result.checks_total} checks. "
                     + (f"The image judge reviewed {result.photos} device screenshots. " if result.visual else "Image judging was disabled. ")
                     + "The PC displays pixels rendered by the board; no camera or CPU simulation is used.")
         return "The firmware was uploaded but hardware checks did not complete: " + result.problem
-    if result.target == 'host' and result.ok:
-        colours = (' Checked in dark first, then switched to the requested light colours.'
-                   if result.theme == 'light' and result.palette_mode=='both' else ' Showing the tested white/light colours.' if result.theme=='light' else ' Showing the tested dark colours.')
-        return (f"Done! Your interface passed {result.checks_total} PC checks and is ready on the simulated glass."
-                + (f' The image judge also reviewed {result.photos} framebuffer captures.' if result.visual else '')
-                + colours + "\nReady for real board: pio run -e lvgl_ui_test -t upload"
-                + "\nThis uses the same generated_ui.cpp; the ESP32 binary is compiled separately." + more)
     if result.ok and result.theme_wanted == "light":
         if result.theme == "light" and result.tests == "passed":
             more = (" I checked it in dark colours, which the camera sees best, then switched it to "
@@ -260,12 +253,12 @@ def handle_generate(sid, request):
         # Show stages and test actions, keeping raw host output in the terminal.
         if line.startswith(('Attempt ', 'Rule check ', 'Rejected by rule check', 'Compile failed',
                             'Compiled successfully', 'Flashing', 'Flashed', 'Running the tests', 'Tests:', 'Running the same', 'Initial render', 'Test:',
-                            'Test ', 'Host tests:', 'Dark checks', 'Giving up', 'Ready for real board', 'Repair needed', 'Repair budget', 'Light palette failed','Image judge:')):
+                            'Test ', 'Dark checks', 'Giving up', 'Ready for real board', 'Repair needed', 'Repair budget', 'Image judge:')):
             session['progress'] = line.split('\n')[0]
 
     try:
         result = pipeline.run(
-            request + ('\nPresentation preference: use a white/light background by default. Test the selected palette only unless SIM_TEST_PALETTES=both was configured. Keep compile-time palette differences limited to colours.' if not FLASH and os.environ.get('UI_PRESENTATION_THEME') == 'light' and not re.search(r'\b(?:keep|use|prefer|want|make)\b.{0,20}\b(?:dark|black)\b',request,re.I) else ''), flash=FLASH, port=UPLOAD_PORT, log=progress_log,
+            request + ('\nPresentation preference: use a white/light background by default. Keep compile-time palette differences limited to colours.' if not FLASH and os.environ.get('UI_PRESENTATION_THEME') == 'light' and not re.search(r'\b(?:keep|use|prefer|want|make)\b.{0,20}\b(?:dark|black)\b',request,re.I) else ''), flash=FLASH, port=UPLOAD_PORT, log=progress_log,
             history=list(session.get('repair_history') or session['history']) if re.search(r'continue repairing|retry|redo',request,re.I) else list(session['history']), test=TESTS,
             presentation_theme=('light' if not FLASH and os.environ.get('UI_PRESENTATION_THEME')=='light' and not re.search(r'\b(?:keep|use|prefer|want|make)\b.{0,20}\b(?:dark|black)\b',request,re.I) else None)
         )
@@ -289,11 +282,11 @@ def handle_generate(sid, request):
 
 def sync_accepted_source(session):
     """Keep follow-up edits based on the actual glass after a CLI repair/review."""
-    if FLASH or not cache_enabled or not session.get('history'):return
+    if not cache_enabled or not session.get('history'):return
     try:
-        manifest=json.loads(pipeline.host_sim.ACTIVE.read_text(encoding='utf-8'))
+        manifest=json.loads(pipeline.project_state.ACTIVE.read_text(encoding='utf-8'))
         sha=manifest['source_sha256']
-        if sha==session.get('source_sha256') or pipeline.host_sim.digest(pipeline.TARGET)!=sha:return
+        if sha==session.get('source_sha256') or pipeline.project_state.digest(pipeline.TARGET)!=sha:return
         reply=pipeline.spec_module.join_reply(pipeline.TARGET.read_text(encoding='utf-8'),pipeline.SPEC_FILE.read_text(encoding='utf-8'))
         for index in range(len(session['history'])-1,-1,-1):
             if session['history'][index][0]=='model':
@@ -318,7 +311,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if os.environ.get('IOT_TARGET') == 'hardware_capture' and self._trusted() and self.path in ('/hardware', '/api/hardware'):
-            import hardware_target
+            from hardware import target as hardware_target
             if self.path == '/hardware':
                 return self._send(200, (pipeline.ROOT/'hardware/index.html').read_text(encoding='utf-8'), 'text/html')
             return self._send(200, json.dumps(hardware_target.runtime.status()))
@@ -327,7 +320,7 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == '/api/status' and self._trusted():
             gemini_client.load_dotenv()
             provider=os.environ.get('GENERATOR_PROVIDER','gemini')
-            self._send(200,json.dumps({'target':'Real ESP32 / USB screenshots' if os.environ.get('IOT_TARGET')=='hardware_capture' else 'board' if FLASH else 'PC simulator',
+            self._send(200,json.dumps({'target':'Real ESP32 / USB screenshots' if os.environ.get('IOT_TARGET')=='hardware_capture' else 'board' if FLASH else 'ESP32 compile only',
                 'project':str(pipeline.ROOT),
                 'flash':FLASH,'provider':provider,'model':os.environ.get('OPENAI_MODEL' if provider=='openai' else 'GEMINI_MODEL',''),
                 'vision_judge':(not FLASH or os.environ.get('IOT_TARGET')=='hardware_capture') and os.environ.get('SIM_VISION_JUDGE','0')!='0',
@@ -342,7 +335,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 size=int(self.headers.get('Content-Length', '0'))
                 if not 0 < size <= 2048: raise ValueError('Invalid request size')
-                import hardware_target
+                from hardware import target as hardware_target
                 result=hardware_target.runtime.action(json.loads(self.rfile.read(size)))
                 return self._send(200,json.dumps(result))
             except Exception as exc:
@@ -397,11 +390,11 @@ if __name__ == "__main__":
     provider=os.environ.get('GENERATOR_PROVIDER','gemini')
     if not os.environ.get('OPENAI_API_KEY' if provider=='openai' else 'GEMINI_API_KEY'):
         print('Warning: the selected provider API key is missing; add it to .env.')
-    tests = ("PC LVGL + PNG image judge, no camera" if os.environ.get('SIM_VISION_JUDGE','0')!='0' else "PC LVGL, no camera/judge") if not FLASH else "off" if not TESTS else (
-        f"on, camera {os.environ['CAMERA_INDEX']}" if os.environ.get("CAMERA_INDEX") else "on, no camera")
+    tests = ('USB screenshots' if os.environ.get('IOT_TARGET')=='hardware_capture'
+             else 'off' if not FLASH or not TESTS else 'camera' if os.environ.get('CAMERA_INDEX') else 'state checks')
     print(f"Screen designer at http://{HOST}:{PORT}  (flash to board: {'on' if FLASH else 'off'}; "
           f"tests: {tests}; Ctrl+C to stop)")
     if os.environ.get('IOT_TARGET') == 'hardware_capture':
-        import hardware_target
+        from hardware import target as hardware_target
         hardware_target.runtime.start()
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

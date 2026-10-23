@@ -1,6 +1,6 @@
 """Command-line version of the generator.
 
-    python tools/ui_generator/generate.py "a light switch with a brightness slider" --sim
+    python tools/ui_generator/generate.py "a light switch with a brightness slider" --hardware
     python tools/ui_generator/generate.py "..." --flash           # explicit board upload
     python tools/ui_generator/generate.py "..." --test            # flash, run the tests, use the camera
     python tools/ui_generator/generate.py "..." --code-file reply.txt   # skip Gemini
@@ -10,6 +10,7 @@ generated_ui.cpp together with --spec-file.
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -22,14 +23,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("request", help="the interface you want")
     ap.add_argument("--flash", action="store_true", help="upload to the board after it compiles")
-    ap.add_argument("--test", action="store_true", help="legacy board path: flash, then run board tests")
-    ap.add_argument("--sim", action="store_true", help="compile/test on PC and reload the bench (default without --flash/--test)")
+    ap.add_argument("--test", action="store_true", help="flash, then run board tests (camera path unless --hardware)")
+    ap.add_argument("--hardware", "--sim", dest="hardware", action="store_true", help="run/test on the real ESP32 with USB screenshots (--sim is a compatibility alias)")
     ap.add_argument("--port", help="upload/serial port, e.g. COM4")
     ap.add_argument("--code-file", help="use this file as the model reply instead of calling Gemini")
     ap.add_argument("--spec-file", help="ui_spec.json to pair with a bare --code-file")
     args = ap.parse_args()
-    if args.sim and (args.flash or args.test):
-        ap.error('--sim cannot be combined with --flash or --test')
+    if args.hardware:
+        os.environ.update(IOT_TARGET='hardware_capture', IOT_ALLOW_UPLOAD='1')
+        if args.port:os.environ['UPLOAD_PORT']=args.port
 
     get_code = None
     if args.code_file:
@@ -40,8 +42,8 @@ def main():
         pipeline.MAX_ATTEMPTS = 1  # a fixed reply can't fix itself, so don't retry it
 
     try:
-        result = pipeline.run(args.request, flash=args.flash or args.test, port=args.port,
-                              get_code=get_code, test=args.test)
+        result = pipeline.run(args.request, flash=args.hardware or args.flash or args.test, port=args.port,
+                              get_code=get_code, test=args.hardware or args.test)
     except (gemini_client.GeminiError, RuntimeError) as e:
         print(f"Error: {e}")
         sys.exit(2)
